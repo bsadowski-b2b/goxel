@@ -161,10 +161,10 @@ static void gui_xcom_swatches(const char *id_prefix, int per_row)
 
 void gui_xcom_panel(void)
 {
-    gui_request_panel_width(260);
+    gui_request_panel_width(340);
 
     if (gui_section_begin(_("Palette"), false)) {
-        gui_xcom_swatches("xcom_panel_color", 4);
+        gui_xcom_swatches("xcom_panel_color", XCOM_SWATCHES_COUNT);
         gui_section_end();
     }
 
