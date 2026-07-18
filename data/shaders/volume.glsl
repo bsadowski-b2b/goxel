@@ -266,7 +266,7 @@ void main()
     vec4 base_color = u_m_base_color * v_color;
 
 #ifdef MATERIAL_UNLIT
-    gl_FragColor = vec4(sqrt(base_color.rgb), base_color.a);
+    gl_FragColor = vec4(toneMap(base_color.rgb), base_color.a);
     return;
 #endif
 

@@ -201,7 +201,7 @@
     "#endif\n"
     ""
 },
-{.path = "data/shaders/volume.glsl", .size = 9420, .data =
+{.path = "data/shaders/volume.glsl", .size = 9423, .data =
     "/* Goxel 3D voxels editor\n"
     " *\n"
     " * copyright (c) 2015 Guillaume Chereau <guillaume@noctua-software.com>\n"
@@ -470,7 +470,7 @@
     "    vec4 base_color = u_m_base_color * v_color;\n"
     "\n"
     "#ifdef MATERIAL_UNLIT\n"
-    "    gl_FragColor = vec4(sqrt(base_color.rgb), base_color.a);\n"
+    "    gl_FragColor = vec4(toneMap(base_color.rgb), base_color.a);\n"
     "    return;\n"
     "#endif\n"
     "\n"
