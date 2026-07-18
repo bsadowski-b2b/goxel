@@ -560,6 +560,12 @@ typedef struct goxel
         float panel_width;
         float viewport[4];
         margins_t safe_margins;
+        float topbar_pos[2];
+        float leftbar_pos[2];
+        bool topbar_pos_set;
+        bool leftbar_pos_set;
+        int topbar_orientation;
+        int leftbar_orientation;
     } gui;
 
     char **recent_files; // stb arraw of most recently used files.

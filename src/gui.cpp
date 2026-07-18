@@ -901,6 +901,8 @@ gui_window_ret_t gui_window_end(void)
         if (gui_pan_scroll_behavior(gui->win_dir))
             gui->scrolling |= 1;
     }
+    ret.x = ImGui::GetWindowPos().x;
+    ret.y = ImGui::GetWindowPos().y;
     ret.h = ImGui::GetWindowHeight();
     ret.w = ImGui::GetWindowWidth();
     ImGui::End();
@@ -1916,6 +1918,53 @@ void gui_tooltip(const char *str)
 bool gui_tab(const char *label, int icon, bool *v)
 {
     return _selectable(label, v, NULL, 0, icon);
+}
+
+bool gui_toolbar_handle(const char *tooltip)
+{
+    bool ret = false;
+    bool active;
+    bool hovered;
+    float size = gui_get_item_height();
+    ImDrawList* draw_list = ImGui::GetWindowDrawList();
+    const ImGuiStyle& style = ImGui::GetStyle();
+    ImVec2 p1, p2, delta;
+    ImU32 bg_col;
+    ImU32 line_col;
+
+    ImGui::PushID(tooltip ? tooltip : "toolbar_handle");
+    ImGui::InvisibleButton("##toolbar_handle", ImVec2(size, size));
+    update_activation_state();
+
+    hovered = ImGui::IsItemHovered();
+    active = ImGui::IsItemActive();
+    if (active && ImGui::IsMouseDragging(0)) {
+        delta = ImGui::GetIO().MouseDelta;
+        if (delta.x || delta.y) {
+            ImGui::SetWindowPos(ImGui::GetWindowPos() + delta);
+            ret = true;
+        }
+    }
+    if (hovered || active) {
+        ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeAll);
+        if (tooltip) gui_tooltip(tooltip);
+    }
+
+    p1 = ImGui::GetItemRectMin();
+    p2 = ImGui::GetItemRectMax();
+    bg_col = ImGui::GetColorU32(COLOR(ICON, INNER, hovered || active));
+    line_col = ImGui::GetColorU32(COLOR(BASE, TEXT, false));
+    draw_list->AddRectFilled(p1, p2, bg_col, style.FrameRounding);
+    for (int i = 0; i < 3; i++) {
+        float x = p1.x + size * 0.38f + i * 4.0f;
+        draw_list->AddLine(ImVec2(x, p1.y + size * 0.28f),
+                           ImVec2(x, p2.y - size * 0.28f),
+                           line_col, 1.5f);
+    }
+
+    ImGui::PopID();
+    if (gui->is_row) ImGui::SameLine();
+    return ret;
 }
 
 static bool panel_header_close_button(void)

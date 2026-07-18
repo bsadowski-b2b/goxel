@@ -90,7 +90,7 @@ ACTION_REGISTER(ACTION_xcom_load_swatch_palette,
     .icon = ICON_PALETTE,
 )
 
-static void gui_topbar_actions(void)
+static void gui_topbar_actions(int orientation)
 {
     int i;
     static const int ACTIONS[] = {
@@ -102,15 +102,17 @@ static void gui_topbar_actions(void)
     };
 
     gui_group_begin(NULL);
-    gui_row_begin(0);
+    if (orientation == GUI_LAYOUT_HORIZONTAL)
+        gui_row_begin(0);
     for (i = 0; i < ARRAY_SIZE(ACTIONS); i++) {
         gui_action_button(ACTIONS[i], NULL, 0);
     }
-    gui_row_end();
+    if (orientation == GUI_LAYOUT_HORIZONTAL)
+        gui_row_end();
     gui_group_end();
 }
 
-static int gui_mode_select(void)
+static int gui_mode_select(int orientation)
 {
     bool v;
     char label[64];
@@ -128,7 +130,8 @@ static int gui_mode_select(void)
     };
     // XXX: almost the same as in tools_panel.
     gui_group_begin(NULL);
-    gui_row_begin(0);
+    if (orientation == GUI_LAYOUT_HORIZONTAL)
+        gui_row_begin(0);
     for (i = 0; i < ARRAY_SIZE(values); i++) {
         v = goxel.painter.mode == values[i].mode;
         action = action_get(values[i].action, true);
@@ -137,7 +140,8 @@ static int gui_mode_select(void)
             action_exec(action);
         }
     }
-    gui_row_end();
+    if (orientation == GUI_LAYOUT_HORIZONTAL)
+        gui_row_end();
     gui_group_end();
     return 0;
 }
@@ -177,16 +181,25 @@ void gui_xcom_panel(void)
     } gui_section_end();
 }
 
-void gui_top_bar(void)
+void gui_top_bar(int orientation)
 {
-    gui_row_begin(0); {
-        gui_topbar_actions();
+    if (orientation == GUI_LAYOUT_HORIZONTAL) {
         gui_row_begin(0); {
-            gui_mode_select();
+        gui_toolbar_handle("Drag top toolbar");
+        gui_topbar_actions(orientation);
+        gui_row_begin(0); {
+            gui_mode_select(orientation);
             gui_color("##color", goxel.painter.color);
             gui_xcom_swatches("xcom_color", 0);
         } gui_row_end();
-    } gui_row_end();
+        } gui_row_end();
+    } else {
+        gui_toolbar_handle("Drag top toolbar");
+        gui_topbar_actions(orientation);
+        gui_mode_select(orientation);
+        gui_color("##color", goxel.painter.color);
+        gui_xcom_swatches("xcom_color", 0);
+    }
 }
 
 #endif // GUI_CUSTOM_TOPBAR

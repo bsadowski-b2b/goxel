@@ -43,7 +43,7 @@
 void gui_edit_panel(void);
 void gui_menu(void);
 void gui_tools_panel(void);
-void gui_top_bar(void);
+void gui_top_bar(int orientation);
 void gui_palette_panel(void);
 void gui_xcom_panel(void);
 void gui_layers_panel(void);
@@ -117,11 +117,14 @@ static void on_click(void) {
         sound_play("click", 1.0, 1.0);
 }
 
-static void render_left_panel(void)
+static void render_left_panel(int orientation)
 {
     int i;
     bool selected;
 
+    if (orientation == GUI_LAYOUT_HORIZONTAL)
+        gui_row_begin(0);
+    gui_toolbar_handle("Drag navigation toolbar");
     for (i = 1; i < (int)ARRAY_SIZE(PANELS); i++) {
         selected = (goxel.gui.current_panel == i);
         if (gui_tab(tr(PANELS[i].name), PANELS[i].icon, &selected)) {
@@ -129,6 +132,53 @@ static void render_left_panel(void)
             goxel.gui.current_panel = selected ? i : 0;
         }
     }
+    if (orientation == GUI_LAYOUT_HORIZONTAL)
+        gui_row_end();
+}
+
+void gui_reset_toolbar_layout(void)
+{
+    goxel.gui.topbar_pos_set = false;
+    goxel.gui.leftbar_pos_set = false;
+    goxel.gui.topbar_orientation = GUI_LAYOUT_HORIZONTAL;
+    goxel.gui.leftbar_orientation = GUI_LAYOUT_VERTICAL;
+}
+
+static void set_default_topbar_pos(float y)
+{
+    if (goxel.gui.topbar_pos_set) return;
+    goxel.gui.topbar_pos[0] = 0;
+    goxel.gui.topbar_pos[1] = y;
+}
+
+static void set_default_leftbar_pos(float y)
+{
+    if (goxel.gui.leftbar_pos_set) return;
+    goxel.gui.leftbar_pos[0] = 0;
+    goxel.gui.leftbar_pos[1] = y;
+}
+
+static float toolbar_max_pos(float window_size)
+{
+    return max(0.0f, window_size - gui_get_item_height());
+}
+
+static bool update_toolbar_pos(float pos[2], bool *pos_set,
+                               gui_window_ret_t window_ret)
+{
+    float x, y;
+
+    x = clamp(window_ret.x, 0.0f, toolbar_max_pos(goxel.screen_size[0]));
+    y = clamp(window_ret.y, GUI_HAS_MENU ? gui_get_item_height() + 2 : 0,
+              toolbar_max_pos(goxel.screen_size[1]));
+    if (!*pos_set || x - pos[0] > 0.5f || pos[0] - x > 0.5f ||
+        y - pos[1] > 0.5f || pos[1] - y > 0.5f) {
+        pos[0] = x;
+        pos[1] = y;
+        *pos_set = true;
+        return true;
+    }
+    return false;
 }
 
 // Compute the order to render the hints.
@@ -200,6 +250,8 @@ void gui_app(void)
     int i;
     filter_layout_state_t filter_layout_state;
     const float item_height = gui_get_item_height();
+    gui_window_ret_t topbar_ret;
+    gui_window_ret_t leftbar_ret;
 
     goxel.show_export_viewport = false;
 
@@ -215,13 +267,27 @@ void gui_app(void)
         y = item_height + 2;
     }
 
-    gui_window_begin("Top Bar", x, y, 0, 0, 0);
-    gui_top_bar();
-    y += gui_window_end().h + spacing;
+    set_default_topbar_pos(y);
+    gui_window_begin("Top Bar", goxel.gui.topbar_pos[0],
+                     goxel.gui.topbar_pos[1], 0, 0, 0);
+    gui_top_bar(goxel.gui.topbar_orientation);
+    topbar_ret = gui_window_end();
+    if (update_toolbar_pos(goxel.gui.topbar_pos, &goxel.gui.topbar_pos_set,
+                           topbar_ret))
+        settings_save();
 
-    gui_window_begin("Left Bar", x, y, 0, 0, 0);
-    render_left_panel();
-    x += gui_window_end().w + spacing;
+    y += topbar_ret.h + spacing;
+    set_default_leftbar_pos(y);
+    gui_window_begin("Left Bar", goxel.gui.leftbar_pos[0],
+                     goxel.gui.leftbar_pos[1], 0, 0, 0);
+    render_left_panel(goxel.gui.leftbar_orientation);
+    leftbar_ret = gui_window_end();
+    if (update_toolbar_pos(goxel.gui.leftbar_pos, &goxel.gui.leftbar_pos_set,
+                           leftbar_ret))
+        settings_save();
+
+    x = goxel.gui.leftbar_pos[0] + leftbar_ret.w + spacing;
+    y = goxel.gui.leftbar_pos[1];
 
     if (goxel.gui.current_panel) {
         name = tr(PANELS[goxel.gui.current_panel].name);

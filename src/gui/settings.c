@@ -116,6 +116,18 @@ static void on_add_keymap_button(void)
     settings_save();
 }
 
+static int layout_orientation_from_string(const char *value)
+{
+    if (strcmp(value, "vertical") == 0)
+        return GUI_LAYOUT_VERTICAL;
+    return GUI_LAYOUT_HORIZONTAL;
+}
+
+static const char *layout_orientation_to_string(int value)
+{
+    return value == GUI_LAYOUT_VERTICAL ? "vertical" : "horizontal";
+}
+
 int gui_settings_popup(void *data)
 {
     const char *names[128];
@@ -128,6 +140,7 @@ int gui_settings_popup(void *data)
     bool val;
     float scale;
     const char *path;
+    const char *orientations[] = { "Horizontal", "Vertical" };
 
     if (gui_section_begin(_("Language"), GUI_SECTION_COLLAPSABLE)) {
         language = tr_get_language();
@@ -163,6 +176,22 @@ int gui_settings_popup(void *data)
             gui_set_scale(scale);
         }
         if (gui_is_item_deactivated()) {
+            settings_save();
+        }
+        gui_text("Top Toolbar");
+        current = goxel.gui.topbar_orientation;
+        if (gui_combo("##topbar_orientation", &current, orientations, 2)) {
+            goxel.gui.topbar_orientation = current;
+            settings_save();
+        }
+        gui_text("Navigation Toolbar");
+        current = goxel.gui.leftbar_orientation;
+        if (gui_combo("##leftbar_orientation", &current, orientations, 2)) {
+            goxel.gui.leftbar_orientation = current;
+            settings_save();
+        }
+        if (gui_button("Reset Toolbar Layout", 1.0, 0)) {
+            gui_reset_toolbar_layout();
             settings_save();
         }
 
@@ -270,6 +299,30 @@ static int settings_ini_handler(void *user, const char *section,
         if (strcmp(name, "scale") == 0) {
             gui_set_scale(atof(value));
         }
+        if (strcmp(name, "topbar_orientation") == 0) {
+            goxel.gui.topbar_orientation =
+                layout_orientation_from_string(value);
+        }
+        if (strcmp(name, "leftbar_orientation") == 0) {
+            goxel.gui.leftbar_orientation =
+                layout_orientation_from_string(value);
+        }
+        if (strcmp(name, "topbar_x") == 0) {
+            goxel.gui.topbar_pos[0] = atof(value);
+            goxel.gui.topbar_pos_set = true;
+        }
+        if (strcmp(name, "topbar_y") == 0) {
+            goxel.gui.topbar_pos[1] = atof(value);
+            goxel.gui.topbar_pos_set = true;
+        }
+        if (strcmp(name, "leftbar_x") == 0) {
+            goxel.gui.leftbar_pos[0] = atof(value);
+            goxel.gui.leftbar_pos_set = true;
+        }
+        if (strcmp(name, "leftbar_y") == 0) {
+            goxel.gui.leftbar_pos[1] = atof(value);
+            goxel.gui.leftbar_pos_set = true;
+        }
     }
     if (strcmp(section, "shortcuts") == 0) {
         a = action_get_by_name(name);
@@ -306,6 +359,10 @@ void settings_load(void)
     arrfree(goxel.keymaps);
     goxel.emulate_three_buttons_mouse = 0;
     goxel.xcom_gox_repository[0] = '\0';
+    goxel.gui.topbar_orientation = GUI_LAYOUT_HORIZONTAL;
+    goxel.gui.leftbar_orientation = GUI_LAYOUT_VERTICAL;
+    goxel.gui.topbar_pos_set = false;
+    goxel.gui.leftbar_pos_set = false;
     ini_parse(path, settings_ini_handler, NULL);
     actions_check_shortcuts();
     gesture_set_emulate_three_buttons_mouse(goxel.emulate_three_buttons_mouse);
@@ -374,6 +431,18 @@ void settings_save(void)
     fprintf(file, "theme=%s\n", theme_get()->name);
     fprintf(file, "language=%s\n", goxel.lang);
     fprintf(file, "scale=%f\n", gui_get_scale());
+    fprintf(file, "topbar_orientation=%s\n",
+            layout_orientation_to_string(goxel.gui.topbar_orientation));
+    fprintf(file, "leftbar_orientation=%s\n",
+            layout_orientation_to_string(goxel.gui.leftbar_orientation));
+    if (goxel.gui.topbar_pos_set) {
+        fprintf(file, "topbar_x=%f\n", goxel.gui.topbar_pos[0]);
+        fprintf(file, "topbar_y=%f\n", goxel.gui.topbar_pos[1]);
+    }
+    if (goxel.gui.leftbar_pos_set) {
+        fprintf(file, "leftbar_x=%f\n", goxel.gui.leftbar_pos[0]);
+        fprintf(file, "leftbar_y=%f\n", goxel.gui.leftbar_pos[1]);
+    }
     fprintf(file, "\n");
 
     fprintf(file, "[xcom]\n");

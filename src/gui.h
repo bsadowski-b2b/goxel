@@ -39,7 +39,14 @@ enum {
     GUI_WINDOW_MOVED                    = 1 << 2,
 };
 
+enum {
+    GUI_LAYOUT_HORIZONTAL,
+    GUI_LAYOUT_VERTICAL,
+};
+
 typedef struct {
+    float x;
+    float y;
     float h;
     float w;
 } gui_window_ret_t;
@@ -60,8 +67,10 @@ void gui_release_graphics(void);
 void gui_render(const inputs_t *inputs);
 
 void gui_request_panel_width(float width);
+void gui_reset_toolbar_layout(void);
 
 bool gui_panel_header(const char *label);
+bool gui_toolbar_handle(const char *tooltip);
 
 // Gui widgets:
 bool gui_collapsing_header(const char *label, bool default_opened);
