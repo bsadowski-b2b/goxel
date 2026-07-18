@@ -186,10 +186,11 @@ static int on_hover(gesture3d_t *gest)
     if (shift)
         render_line(&goxel.rend, brush->start_pos, gest->pos, NULL, 0);
 
+    get_box(gest->pos, NULL, gest->normal, goxel.tool_radius, NULL, box);
+    tool_render_hover_box(box, painter->mode);
+
     if (goxel.tool_volume && check_can_skip(brush, gest, painter->mode))
         return 0;
-
-    get_box(gest->pos, NULL, gest->normal, goxel.tool_radius, NULL, box);
 
     if (!goxel.tool_volume) goxel.tool_volume = volume_new();
     volume_set(goxel.tool_volume, volume);
@@ -402,12 +403,17 @@ static int noise_on_hover(gesture3d_t *gest)
     volume_t *volume = goxel.image->active_layer->volume;
     tool_noise_brush_t *brush = USER_GET(gest->user, 0);
     const painter_t *painter = USER_GET(gest->user, 1);
+    float box[4][4];
 
     if (gest->state == GESTURE3D_STATE_END || !gest->snaped) {
         volume_delete(goxel.tool_volume);
         goxel.tool_volume = NULL;
         return 0;
     }
+
+    get_box(gest->pos, NULL, gest->normal, max(goxel.tool_radius, 0.5f),
+            NULL, box);
+    tool_render_hover_box(box, painter->mode);
 
     if (!goxel.tool_volume)
         goxel.tool_volume = volume_new();

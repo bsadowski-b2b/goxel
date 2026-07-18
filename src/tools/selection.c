@@ -64,14 +64,20 @@ static void update_mask(tool_selection_t *tool)
 
 static int on_hover(gesture3d_t *gest)
 {
+    tool_selection_t *tool = gest->user;
     float rect[4][4];
-    uint8_t rect_color[4] = {255, 255, 0, 255};
+    int mode = tool->mode;
 
     if (gest->snaped & (SNAP_SELECTION_OUT | SNAP_SELECTION_IN)) {
         return -1;
     }
+    if (gest->flags & GESTURE3D_FLAG_SHIFT)
+        mode = MODE_OVER;
+    else if (gest->flags & GESTURE3D_FLAG_CTRL)
+        mode = MODE_SUB;
+
     get_rect(gest->pos, gest->normal, rect);
-    render_box(&goxel.rend, rect, rect_color, EFFECT_WIREFRAME);
+    tool_render_hover_box(rect, mode);
     return 0;
 }
 

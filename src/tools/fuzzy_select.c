@@ -68,6 +68,30 @@ static int on_click(gesture3d_t *gest)
     return 0;
 }
 
+static int on_hover(gesture3d_t *gest)
+{
+    tool_fuzzy_select_t *tool = gest->user;
+    int mode = tool->mode;
+    int pi[3];
+    float center[3], box[4][4];
+
+    if (!gest->snaped)
+        return 0;
+
+    if (gest->flags & GESTURE3D_FLAG_SHIFT)
+        mode = MODE_OVER;
+    else if (gest->flags & GESTURE3D_FLAG_CTRL)
+        mode = MODE_SUB;
+
+    pi[0] = floor(gest->pos[0]);
+    pi[1] = floor(gest->pos[1]);
+    pi[2] = floor(gest->pos[2]);
+    vec3_set(center, pi[0] + 0.5f, pi[1] + 0.5f, pi[2] + 0.5f);
+    bbox_from_extents(box, center, 0.5f, 0.5f, 0.5f);
+    tool_render_hover_box(box, mode);
+    return 0;
+}
+
 static void init(tool_t *tool_)
 {
     tool_fuzzy_select_t *tool = (void*)tool_;
@@ -78,6 +102,13 @@ static int iter(tool_t *tool_, const painter_t *painter,
                 const float viewport[4])
 {
     tool_fuzzy_select_t *tool = (void*)tool_;
+    goxel_gesture3d(&(gesture3d_t) {
+        .type = GESTURE3D_TYPE_HOVER,
+        .snap_mask = SNAP_VOLUME | SNAP_IMAGE_BOX,
+        .snap_offset = -0.5,
+        .callback = on_hover,
+        .user = tool,
+    });
     goxel_gesture3d(&(gesture3d_t) {
         .type = GESTURE3D_TYPE_CLICK,
         .snap_mask = SNAP_VOLUME | SNAP_IMAGE_BOX,
