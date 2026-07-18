@@ -425,6 +425,9 @@ enum {
     X(ICON_SUBTRACT,                5, 6, 0),
     X(ICON_SNAP,                    6, 6, 0),
     X(ICON_SYMMETRY,                7, 6, 0),
+
+    X(ICON_XCOM_CAMERA_RESET,        0, 7, THEME_GROUP_ICON),
+    X(ICON_XCOM_VIEW_TOGGLE,         1, 7, THEME_GROUP_ICON),
 };
 
 #undef X
