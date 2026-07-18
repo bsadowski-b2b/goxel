@@ -65,7 +65,6 @@ static void update_mask(tool_selection_t *tool)
 static int on_hover(gesture3d_t *gest)
 {
     tool_selection_t *tool = gest->user;
-    float rect[4][4];
     int mode = tool->mode;
 
     if (gest->snaped & (SNAP_SELECTION_OUT | SNAP_SELECTION_IN)) {
@@ -76,8 +75,8 @@ static int on_hover(gesture3d_t *gest)
     else if (gest->flags & GESTURE3D_FLAG_CTRL)
         mode = MODE_SUB;
 
-    get_rect(gest->pos, gest->normal, rect);
-    tool_render_hover_box(rect, mode);
+    tool_render_hover_face(gest->pos, gest->normal, gest->snap_offset,
+                           0.5f, mode);
     return 0;
 }
 

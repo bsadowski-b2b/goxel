@@ -72,8 +72,6 @@ static int on_hover(gesture3d_t *gest)
 {
     tool_fuzzy_select_t *tool = gest->user;
     int mode = tool->mode;
-    int pi[3];
-    float center[3], box[4][4];
 
     if (!gest->snaped)
         return 0;
@@ -83,12 +81,8 @@ static int on_hover(gesture3d_t *gest)
     else if (gest->flags & GESTURE3D_FLAG_CTRL)
         mode = MODE_SUB;
 
-    pi[0] = floor(gest->pos[0]);
-    pi[1] = floor(gest->pos[1]);
-    pi[2] = floor(gest->pos[2]);
-    vec3_set(center, pi[0] + 0.5f, pi[1] + 0.5f, pi[2] + 0.5f);
-    bbox_from_extents(box, center, 0.5f, 0.5f, 0.5f);
-    tool_render_hover_box(box, mode);
+    tool_render_hover_face(gest->pos, gest->normal, gest->snap_offset,
+                           0.5f, mode);
     return 0;
 }
 

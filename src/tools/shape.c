@@ -45,12 +45,11 @@ static void get_box(const float p0[3], const float p1[3], const float n[3],
 
 static int on_hover(gesture3d_t *gest)
 {
-    float box[4][4];
     const painter_t *painter = USER_GET(gest->user, 1);
 
     goxel_add_hint(HINT_LARGE, GLYPH_MOUSE_LMB, "Draw Shape");
-    get_box(gest->pos, gest->pos, gest->normal, box);
-    tool_render_hover_box(box, painter->mode);
+    tool_render_hover_face(gest->pos, gest->normal, gest->snap_offset,
+                           0.5f, painter->mode);
     return 0;
 }
 

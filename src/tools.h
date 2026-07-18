@@ -85,6 +85,8 @@ int tool_iter(tool_t *tool, const painter_t *painter, const float viewport[4]);
 int tool_gui(tool_t *tool);
 
 void tool_render_hover_box(const float box[4][4], int mode);
+void tool_render_hover_face(const float pos[3], const float normal[3],
+                            float snap_offset, float radius, int mode);
 
 int tool_gui_mask_mode(int *value);
 int tool_gui_shape(const shape_t **shape);

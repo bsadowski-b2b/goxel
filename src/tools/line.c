@@ -124,7 +124,8 @@ static int on_hover(gesture3d_t *gest)
         return 0;
     }
     get_box(gest->pos, NULL, gest->normal, goxel.tool_radius, NULL, box);
-    tool_render_hover_box(box, painter->mode);
+    tool_render_hover_face(gest->pos, gest->normal, gest->snap_offset,
+                           goxel.tool_radius, painter->mode);
 
     if (!goxel.tool_volume) goxel.tool_volume = volume_new();
     volume_set(goxel.tool_volume, volume);

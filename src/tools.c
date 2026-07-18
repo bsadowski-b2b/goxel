@@ -60,10 +60,8 @@ const tool_t *tool_get(int id)
     return g_tools[id];
 }
 
-void tool_render_hover_box(const float box[4][4], int mode)
+static void get_hover_color(int mode, uint8_t color[4])
 {
-    uint8_t color[4];
-
     switch (mode) {
     case MODE_SUB:
         vec4_set(color, 255, 72, 72, 255);
@@ -75,8 +73,31 @@ void tool_render_hover_box(const float box[4][4], int mode)
         vec4_set(color, 64, 220, 255, 255);
         break;
     }
-    render_box(&goxel.rend, box, color,
-               EFFECT_WIREFRAME | EFFECT_NO_DEPTH_TEST);
+}
+
+void tool_render_hover_box(const float box[4][4], int mode)
+{
+    uint8_t color[4];
+
+    get_hover_color(mode, color);
+    render_box(&goxel.rend, box, color, EFFECT_WIREFRAME);
+}
+
+void tool_render_hover_face(const float pos[3], const float normal[3],
+                            float snap_offset, float radius, int mode)
+{
+    float plane[4][4];
+    float face_pos[3];
+    uint8_t color[4];
+
+    get_hover_color(mode, color);
+    color[3] = 96;
+    radius = max(radius, 0.5f);
+    vec3_addk(pos, normal, -snap_offset, face_pos);
+    plane_from_normal(plane, face_pos, normal);
+    mat4_iscale(plane, radius, radius, 0);
+    mat4_itranslate(plane, 0, 0, 0.003);
+    render_rect_fill(&goxel.rend, plane, color);
 }
 
 static int pick_color_gesture(gesture3d_t *gest)

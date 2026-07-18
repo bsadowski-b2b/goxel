@@ -187,7 +187,8 @@ static int on_hover(gesture3d_t *gest)
         render_line(&goxel.rend, brush->start_pos, gest->pos, NULL, 0);
 
     get_box(gest->pos, NULL, gest->normal, goxel.tool_radius, NULL, box);
-    tool_render_hover_box(box, painter->mode);
+    tool_render_hover_face(gest->pos, gest->normal, gest->snap_offset,
+                           goxel.tool_radius, painter->mode);
 
     if (goxel.tool_volume && check_can_skip(brush, gest, painter->mode))
         return 0;
@@ -413,7 +414,8 @@ static int noise_on_hover(gesture3d_t *gest)
 
     get_box(gest->pos, NULL, gest->normal, max(goxel.tool_radius, 0.5f),
             NULL, box);
-    tool_render_hover_box(box, painter->mode);
+    tool_render_hover_face(gest->pos, gest->normal, gest->snap_offset,
+                           max(goxel.tool_radius, 0.5f), painter->mode);
 
     if (!goxel.tool_volume)
         goxel.tool_volume = volume_new();
