@@ -86,7 +86,7 @@ static struct {
 } PANELS[] = {
     [PANEL_TOOLS]       = {N_("Tools"), ICON_TOOLS, gui_tools_panel},
     [PANEL_PALETTE]     = {N_("Palette"), ICON_PALETTE, gui_palette_panel},
-    [PANEL_XCOM]        = {N_("XCom"), ICON_PALETTE, gui_xcom_panel},
+    [PANEL_XCOM]        = {N_("XCom"), ICON_XCOM_TOOL, gui_xcom_panel},
     [PANEL_EDIT]        = {N_("Edit"), ICON_HAMMER, gui_edit_panel},
     [PANEL_LAYERS]      = {N_("Layers"), ICON_LAYERS, gui_layers_panel},
     [PANEL_SNAP]        = {N_("Snap"), ICON_SNAP, gui_snap_panel},
