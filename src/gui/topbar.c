@@ -185,19 +185,39 @@ void gui_top_bar(int orientation)
 {
     if (orientation == GUI_LAYOUT_HORIZONTAL) {
         gui_row_begin(0); {
-        gui_toolbar_handle("Drag top toolbar");
-        gui_topbar_actions(orientation);
-        gui_row_begin(0); {
-            gui_mode_select(orientation);
-            gui_color("##color", goxel.painter.color);
-            gui_xcom_swatches("xcom_color", 0);
-        } gui_row_end();
+            gui_toolbar_handle("Drag top toolbar");
+            gui_topbar_actions(orientation);
         } gui_row_end();
     } else {
         gui_toolbar_handle("Drag top toolbar");
         gui_topbar_actions(orientation);
+    }
+}
+
+void gui_paint_bar(int orientation)
+{
+    if (orientation == GUI_LAYOUT_HORIZONTAL) {
+        gui_row_begin(0); {
+            gui_toolbar_handle("Drag paint toolbar");
+            gui_mode_select(orientation);
+            gui_color("##color", goxel.painter.color);
+        } gui_row_end();
+    } else {
+        gui_toolbar_handle("Drag paint toolbar");
         gui_mode_select(orientation);
         gui_color("##color", goxel.painter.color);
+    }
+}
+
+void gui_swatches_bar(int orientation)
+{
+    if (orientation == GUI_LAYOUT_HORIZONTAL) {
+        gui_row_begin(0); {
+            gui_toolbar_handle("Drag swatches toolbar");
+            gui_xcom_swatches("xcom_color", 0);
+        } gui_row_end();
+    } else {
+        gui_toolbar_handle("Drag swatches toolbar");
         gui_xcom_swatches("xcom_color", 0);
     }
 }

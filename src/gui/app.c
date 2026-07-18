@@ -44,6 +44,8 @@ void gui_edit_panel(void);
 void gui_menu(void);
 void gui_tools_panel(void);
 void gui_top_bar(int orientation);
+void gui_paint_bar(int orientation);
+void gui_swatches_bar(int orientation);
 void gui_palette_panel(void);
 void gui_xcom_panel(void);
 void gui_layers_panel(void);
@@ -139,8 +141,12 @@ static void render_left_panel(int orientation)
 void gui_reset_toolbar_layout(void)
 {
     goxel.gui.topbar_pos_set = false;
+    goxel.gui.paintbar_pos_set = false;
+    goxel.gui.swatchesbar_pos_set = false;
     goxel.gui.leftbar_pos_set = false;
     goxel.gui.topbar_orientation = GUI_LAYOUT_HORIZONTAL;
+    goxel.gui.paintbar_orientation = GUI_LAYOUT_HORIZONTAL;
+    goxel.gui.swatchesbar_orientation = GUI_LAYOUT_HORIZONTAL;
     goxel.gui.leftbar_orientation = GUI_LAYOUT_VERTICAL;
 }
 
@@ -156,6 +162,14 @@ static void set_default_leftbar_pos(float y)
     if (goxel.gui.leftbar_pos_set) return;
     goxel.gui.leftbar_pos[0] = 0;
     goxel.gui.leftbar_pos[1] = y;
+}
+
+static void set_default_toolbar_pos(float pos[2], bool pos_set,
+                                    float x, float y)
+{
+    if (pos_set) return;
+    pos[0] = x;
+    pos[1] = y;
 }
 
 static float toolbar_max_pos(float window_size)
@@ -251,6 +265,8 @@ void gui_app(void)
     filter_layout_state_t filter_layout_state;
     const float item_height = gui_get_item_height();
     gui_window_ret_t topbar_ret;
+    gui_window_ret_t paintbar_ret;
+    gui_window_ret_t swatchesbar_ret;
     gui_window_ret_t leftbar_ret;
 
     goxel.show_export_viewport = false;
@@ -277,6 +293,28 @@ void gui_app(void)
         settings_save();
 
     y += topbar_ret.h + spacing;
+    set_default_toolbar_pos(goxel.gui.paintbar_pos,
+                            goxel.gui.paintbar_pos_set, 0, y);
+    gui_window_begin("Paint Bar", goxel.gui.paintbar_pos[0],
+                     goxel.gui.paintbar_pos[1], 0, 0, 0);
+    gui_paint_bar(goxel.gui.paintbar_orientation);
+    paintbar_ret = gui_window_end();
+    if (update_toolbar_pos(goxel.gui.paintbar_pos,
+                           &goxel.gui.paintbar_pos_set, paintbar_ret))
+        settings_save();
+
+    y += paintbar_ret.h + spacing;
+    set_default_toolbar_pos(goxel.gui.swatchesbar_pos,
+                            goxel.gui.swatchesbar_pos_set, 0, y);
+    gui_window_begin("Swatches Bar", goxel.gui.swatchesbar_pos[0],
+                     goxel.gui.swatchesbar_pos[1], 0, 0, 0);
+    gui_swatches_bar(goxel.gui.swatchesbar_orientation);
+    swatchesbar_ret = gui_window_end();
+    if (update_toolbar_pos(goxel.gui.swatchesbar_pos,
+                           &goxel.gui.swatchesbar_pos_set, swatchesbar_ret))
+        settings_save();
+
+    y += swatchesbar_ret.h + spacing;
     set_default_leftbar_pos(y);
     gui_window_begin("Left Bar", goxel.gui.leftbar_pos[0],
                      goxel.gui.leftbar_pos[1], 0, 0, 0);

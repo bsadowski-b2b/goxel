@@ -561,10 +561,16 @@ typedef struct goxel
         float viewport[4];
         margins_t safe_margins;
         float topbar_pos[2];
+        float paintbar_pos[2];
+        float swatchesbar_pos[2];
         float leftbar_pos[2];
         bool topbar_pos_set;
+        bool paintbar_pos_set;
+        bool swatchesbar_pos_set;
         bool leftbar_pos_set;
         int topbar_orientation;
+        int paintbar_orientation;
+        int swatchesbar_orientation;
         int leftbar_orientation;
     } gui;
 
