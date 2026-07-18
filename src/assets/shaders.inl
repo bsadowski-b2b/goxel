@@ -201,7 +201,7 @@
     "#endif\n"
     ""
 },
-{.path = "data/shaders/volume.glsl", .size = 9423, .data =
+{.path = "data/shaders/volume.glsl", .size = 9700, .data =
     "/* Goxel 3D voxels editor\n"
     " *\n"
     " * copyright (c) 2015 Guillaume Chereau <guillaume@noctua-software.com>\n"
@@ -468,6 +468,14 @@
     "    float metallic = u_m_metallic;\n"
     "    float roughness = u_m_roughness;\n"
     "    vec4 base_color = u_m_base_color * v_color;\n"
+    "\n"
+    "#ifdef ADAPTIVE_LINE_COLOR\n"
+    "    vec3 voxel_color = toneMap(v_color.rgb);\n"
+    "    float luminance = dot(voxel_color, vec3(0.2126, 0.7152, 0.0722));\n"
+    "    vec3 line_color = luminance < 0.45 ? vec3(1.0) : vec3(0.0);\n"
+    "    gl_FragColor = vec4(line_color, base_color.a);\n"
+    "    return;\n"
+    "#endif\n"
     "\n"
     "#ifdef MATERIAL_UNLIT\n"
     "    gl_FragColor = vec4(toneMap(base_color.rgb), base_color.a);\n"

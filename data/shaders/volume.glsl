@@ -265,6 +265,14 @@ void main()
     float roughness = u_m_roughness;
     vec4 base_color = u_m_base_color * v_color;
 
+#ifdef ADAPTIVE_LINE_COLOR
+    vec3 voxel_color = toneMap(v_color.rgb);
+    float luminance = dot(voxel_color, vec3(0.2126, 0.7152, 0.0722));
+    vec3 line_color = luminance < 0.45 ? vec3(1.0) : vec3(0.0);
+    gl_FragColor = vec4(line_color, base_color.a);
+    return;
+#endif
+
 #ifdef MATERIAL_UNLIT
     gl_FragColor = vec4(toneMap(base_color.rgb), base_color.a);
     return;

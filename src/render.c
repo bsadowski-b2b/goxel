@@ -600,6 +600,7 @@ static void render_volume_(renderer_t *rend, volume_t *volume,
                                (effects & EFFECT_EDGES)},
             {"HAS_TANGENTS", effects & EFFECT_BORDERS},
             {"ONLY_EDGES", effects & EFFECT_EDGES},
+            {"ADAPTIVE_LINE_COLOR", effects & (EFFECT_GRID | EFFECT_EDGES)},
             {"HAS_OCCLUSION_MAP", rend->settings.occlusion_strength > 0},
             {"VERTEX_LIGHTNING", !(effects & (EFFECT_BORDERS | EFFECT_UNLIT))},
             {"SMOOTHNESS", rend->settings.smoothness > 0},
@@ -718,24 +719,24 @@ void render_volume(renderer_t *rend, const volume_t *volume,
     if (effects & EFFECT_GRID_ONLY) effects |= EFFECT_GRID;
 
     if (effects & EFFECT_GRID) {
-        alpha = 0.1;
+        alpha = 0.18;
         item = calloc(1, sizeof(*item));
         item->type = ITEM_VOLUME;
         item->volume = volume_copy(volume);
         item->effects = EFFECT_GRID | EFFECT_BORDERS;
         item->material = *material;
-        vec4_set(item->material.base_color, 0, 0, 0, alpha);
+        vec4_set(item->material.base_color, 1, 1, 1, alpha);
         DL_APPEND(rend->items, item);
     }
 
     if (effects & EFFECT_EDGES) {
-        alpha = 0.2;
+        alpha = 0.24;
         item = calloc(1, sizeof(*item));
         item->type = ITEM_VOLUME;
         item->volume = volume_copy(volume);
         item->effects = EFFECT_EDGES | EFFECT_BORDERS;
         item->material = *material;
-        vec4_set(item->material.base_color, 0, 0, 0, alpha);
+        vec4_set(item->material.base_color, 1, 1, 1, alpha);
         DL_APPEND(rend->items, item);
     }
 }
