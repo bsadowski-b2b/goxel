@@ -124,6 +124,7 @@ static void render_left_panel(int orientation)
     int i;
     bool selected;
 
+    gui_toolbar_begin();
     if (orientation == GUI_LAYOUT_HORIZONTAL)
         gui_row_begin(0);
     gui_toolbar_handle("Drag navigation toolbar");
@@ -136,6 +137,7 @@ static void render_left_panel(int orientation)
     }
     if (orientation == GUI_LAYOUT_HORIZONTAL)
         gui_row_end();
+    gui_toolbar_end();
 }
 
 void gui_reset_toolbar_layout(void)

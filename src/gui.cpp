@@ -206,6 +206,7 @@ typedef struct gui_t {
 
     int     win_dir; // Store the current window direction (for scrolling).
     int     win_style_color_count;
+    int     toolbar_depth;
 
     struct {
         const char *title;
@@ -232,6 +233,19 @@ typedef struct gui_t {
 } gui_t;
 
 static gui_t *gui = NULL;
+
+static void align_toolbar_item(ImVec2 size)
+{
+    ImVec2 pos;
+
+    if (!gui || !gui->toolbar_depth) return;
+    pos = ImGui::GetCursorPos();
+    if (gui->is_row && size.y < GUI_ICON_HEIGHT)
+        pos.y += (GUI_ICON_HEIGHT - size.y) / 2.0f;
+    if (!gui->is_row && size.x < GUI_ICON_HEIGHT)
+        pos.x += (GUI_ICON_HEIGHT - size.x) / 2.0f;
+    ImGui::SetCursorPos(pos);
+}
 
 static void gui_create(void)
 {
@@ -1234,9 +1248,12 @@ static bool _selectable(const char *label, bool *v, const char *tooltip,
     ImGuiWindow* window = ImGui::GetCurrentWindow();
     ImVec2 size;
     ImVec2 center;
+    ImVec2 p1, p2;
     bool ret = false;
     bool default_v = false;
     ImVec2 uv0, uv1; // The position in the icon texture.
+    ImDrawList* draw_list = ImGui::GetWindowDrawList();
+    const ImGuiStyle &style = ImGui::GetStyle();
 
     if (gui->item_size) w = gui->item_size;
 
@@ -1267,15 +1284,30 @@ static bool _selectable(const char *label, bool *v, const char *tooltip,
 
     if (icon != -1) {
         ret = ImGui::Button("", size);
+        p1 = ImGui::GetItemRectMin();
+        p2 = ImGui::GetItemRectMax();
         if (icon) {
-            center = (ImGui::GetItemRectMin() + ImGui::GetItemRectMax()) / 2;
+            center = (p1 + p2) / 2;
             center.y += 0.5;
             uv0 = get_icon_uv(icon);
             uv1 = uv0 + ImVec2(1. / 8, 1. / 8);
-            window->DrawList->AddImage((intptr_t)g_tex_icons->tex,
-                                       center - ImVec2(16, 16),
-                                       center + ImVec2(16, 16),
-                                       uv0, uv1, get_icon_color(icon, *v));
+            window->DrawList->AddImage(
+                    (intptr_t)g_tex_icons->tex,
+                    center - ImVec2(16, 16),
+                    center + ImVec2(16, 16),
+                    uv0, uv1, get_icon_color(icon, *v));
+        }
+        if (*v) {
+            const ImU32 active = IM_COL32(64, 220, 255, 255);
+            const ImU32 inner = IM_COL32(255, 255, 255, 220);
+            draw_list->AddRect(p1 - ImVec2(1, 1), p2 + ImVec2(1, 1),
+                               active, style.FrameRounding, 0, 3.0f);
+            draw_list->AddRect(p1 + ImVec2(2, 2), p2 - ImVec2(2, 2),
+                               inner, style.FrameRounding, 0, 1.0f);
+            draw_list->AddRectFilled(
+                    ImVec2(p1.x + 5, p2.y - 5),
+                    ImVec2(p2.x - 5, p2.y - 2),
+                    active, 1.0f);
         }
     } else {
         ret = ImGui::Button(label, size);
@@ -1385,9 +1417,11 @@ static bool color_picker(const char *label, uint8_t color[4])
 bool gui_color(const char *label, uint8_t color[4])
 {
     bool ret = false;
+    ImVec2 size = color_swatch_size();
 
     ImGui::PushID(label);
-    if (ImGui::ColorButton(label, color, 0, color_swatch_size())) {
+    align_toolbar_item(size);
+    if (ImGui::ColorButton(label, color, 0, size)) {
         ImGui::OpenPopup("GoxelPicker");
     }
 
@@ -1407,10 +1441,12 @@ bool gui_color_swatch(const char *label, uint8_t color[4],
                       uint8_t active_color[4])
 {
     bool ret = false;
+    ImVec2 size = color_swatch_size();
     ImDrawList* draw_list = ImGui::GetWindowDrawList();
 
     ImGui::PushID(label);
-    if (ImGui::ColorButton(label, color, 0, color_swatch_size())) {
+    align_toolbar_item(size);
+    if (ImGui::ColorButton(label, color, 0, size)) {
         vec4_copy(color, active_color);
         on_click();
         ret = true;
@@ -1426,7 +1462,7 @@ bool gui_color_swatch(const char *label, uint8_t color[4],
     if (active_color && memcmp(color, active_color, 4) == 0) {
         ImVec2 c1 = ImGui::GetItemRectMin() - ImVec2(1, 1);
         ImVec2 c2 = ImGui::GetItemRectMax() + ImVec2(1, 1);
-        draw_list->AddRect(c1, c2, IM_COL32(255, 255, 64, 255), 0, 0, 2);
+        draw_list->AddRect(c1, c2, IM_COL32(64, 220, 255, 255), 0, 0, 2);
         draw_list->AddRect(c1, c2, IM_COL32(0, 0, 0, 255), 0, 0, 1);
     }
 
@@ -1959,7 +1995,7 @@ bool gui_toolbar_handle(const char *tooltip)
     bool ret = false;
     bool active;
     bool hovered;
-    float size = gui_get_item_height();
+    float size = GUI_ICON_HEIGHT;
     ImDrawList* draw_list = ImGui::GetWindowDrawList();
     const ImGuiStyle& style = ImGui::GetStyle();
     ImVec2 p1, p2, delta;
@@ -2353,10 +2389,43 @@ void gui_set_current_pos_x(float x)
     ImGui::SetCursorPosX(x);
 }
 
+void gui_toolbar_begin(void)
+{
+    gui->toolbar_depth++;
+}
+
+void gui_toolbar_end(void)
+{
+    assert(gui->toolbar_depth > 0);
+    gui->toolbar_depth--;
+}
+
 float gui_get_item_height(void)
 {
     ImGuiStyle& style = ImGui::GetStyle();
     return style.FramePadding.y * 2 + ImGui::GetFontSize();
+}
+
+float gui_get_item_spacing_x(void)
+{
+    return ImGui::GetStyle().ItemSpacing.x;
+}
+
+float gui_get_content_width(void)
+{
+    return ImGui::GetContentRegionAvail().x;
+}
+
+float gui_get_color_swatch_size(void)
+{
+    return color_swatch_size().x;
+}
+
+void gui_center_next_items(float width)
+{
+    float avail = gui_get_content_width();
+    if (avail > width)
+        ImGui::SetCursorPosX(ImGui::GetCursorPosX() + (avail - width) / 2);
 }
 
 typedef struct list_item list_item_t;

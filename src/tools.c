@@ -69,7 +69,7 @@ void tool_render_hover_box(const float box[4][4], int mode)
         vec4_set(color, 255, 72, 72, 255);
         break;
     case MODE_REPLACE:
-        vec4_set(color, 255, 214, 64, 255);
+        vec4_set(color, 255, 255, 255, 255);
         break;
     default:
         vec4_set(color, 64, 220, 255, 255);

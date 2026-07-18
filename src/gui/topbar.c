@@ -148,12 +148,18 @@ static int gui_mode_select(int orientation)
 
 static void gui_xcom_swatches(const char *id_prefix, int per_row)
 {
-    int i;
+    int i, row_count;
+    float row_width;
     char label[64];
 
     for (i = 0; i < XCOM_SWATCHES_COUNT; i++) {
-        if (per_row && i % per_row == 0)
+        if (per_row && i % per_row == 0) {
+            row_count = min(per_row, XCOM_SWATCHES_COUNT - i);
+            row_width = row_count * gui_get_color_swatch_size() +
+                        (row_count - 1) * gui_get_item_spacing_x();
+            gui_center_next_items(row_width);
             gui_row_begin(0);
+        }
         snprintf(label, sizeof(label), "##%s_%d", id_prefix, i);
         gui_color_swatch(label, goxel.image->xcom_swatches[i],
                          goxel.painter.color);
@@ -183,6 +189,7 @@ void gui_xcom_panel(void)
 
 void gui_top_bar(int orientation)
 {
+    gui_toolbar_begin();
     if (orientation == GUI_LAYOUT_HORIZONTAL) {
         gui_row_begin(0); {
             gui_toolbar_handle("Drag top toolbar");
@@ -192,10 +199,12 @@ void gui_top_bar(int orientation)
         gui_toolbar_handle("Drag top toolbar");
         gui_topbar_actions(orientation);
     }
+    gui_toolbar_end();
 }
 
 void gui_paint_bar(int orientation)
 {
+    gui_toolbar_begin();
     if (orientation == GUI_LAYOUT_HORIZONTAL) {
         gui_row_begin(0); {
             gui_toolbar_handle("Drag paint toolbar");
@@ -207,10 +216,12 @@ void gui_paint_bar(int orientation)
         gui_mode_select(orientation);
         gui_color("##color", goxel.painter.color);
     }
+    gui_toolbar_end();
 }
 
 void gui_swatches_bar(int orientation)
 {
+    gui_toolbar_begin();
     if (orientation == GUI_LAYOUT_HORIZONTAL) {
         gui_row_begin(0); {
             gui_toolbar_handle("Drag swatches toolbar");
@@ -220,6 +231,7 @@ void gui_swatches_bar(int orientation)
         gui_toolbar_handle("Drag swatches toolbar");
         gui_xcom_swatches("xcom_color", 0);
     }
+    gui_toolbar_end();
 }
 
 #endif // GUI_CUSTOM_TOPBAR
