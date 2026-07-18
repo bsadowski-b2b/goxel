@@ -27,7 +27,7 @@ void gui_tools_panel(void)
         int         icon;
     } values[] = {
         {TOOL_BRUSH,        ACTION_tool_set_brush,        ICON_TOOL_BRUSH},
-        {TOOL_NOISE_BRUSH,  ACTION_tool_set_noise_brush,  ICON_TOOL_BRUSH},
+        {TOOL_NOISE_BRUSH,  ACTION_tool_set_noise_brush,  ICON_XCOM_NOISE_BRUSH},
         {TOOL_SHAPE,        ACTION_tool_set_shape,        ICON_TOOL_SHAPE},
         {TOOL_LASER,        ACTION_tool_set_laser,        ICON_TOOL_LASER},
         {TOOL_SET_PLANE,    ACTION_tool_set_plane,        ICON_TOOL_PLANE},
