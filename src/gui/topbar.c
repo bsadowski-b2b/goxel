@@ -165,8 +165,7 @@ void gui_xcom_panel(void)
 
     if (gui_section_begin(_("Palette"), false)) {
         gui_xcom_swatches("xcom_panel_color", XCOM_SWATCHES_COUNT);
-        gui_section_end();
-    }
+    } gui_section_end();
 
     if (gui_section_begin(_("Save"), GUI_SECTION_COLLAPSABLE)) {
         gui_action_button(ACTION_save, _("Save .gox"), 1.0);
@@ -175,8 +174,7 @@ void gui_xcom_panel(void)
                           _("Save Palette"), 1.0);
         gui_action_button(ACTION_xcom_load_swatch_palette,
                           _("Load Palette"), 1.0);
-        gui_section_end();
-    }
+    } gui_section_end();
 }
 
 void gui_top_bar(void)
