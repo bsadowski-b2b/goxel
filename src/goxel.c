@@ -1117,7 +1117,7 @@ static void render_xcom_wall_grid(
     const int effects = 0;
     const uint8_t *color;
 
-    if (is_box_face_visible(box, face)) return;
+    if (!is_box_face_visible(box, face)) return;
 
     switch (face) {
     case 0:
@@ -1280,7 +1280,7 @@ void goxel_render_view(const float viewport[4], bool render_mode)
 
     if (!box_is_null(goxel.image->box) && !goxel.hide_box) {
         render_box(rend, goxel.image->box, goxel.image_box_color,
-                   EFFECT_SEE_BACK | EFFECT_GRID);
+                   EFFECT_SEE_BACK);
         render_symmetry_axis(goxel.image->box, goxel.painter.symmetry,
                              goxel.painter.symmetry_origin);
     }
