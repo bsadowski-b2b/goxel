@@ -27,6 +27,8 @@
 
 #include "inputs.h"
 
+typedef struct texture texture_t;
+
 #ifndef GUI_PANEL_WIDTH_NORMAL
 #   define GUI_PANEL_WIDTH_NORMAL 230
 #endif
@@ -71,6 +73,10 @@ void gui_reset_toolbar_layout(void);
 
 bool gui_panel_header(const char *label);
 bool gui_toolbar_handle(const char *tooltip);
+bool gui_reference_image_window(const char *label, texture_t *texture,
+                                float pos[2], float size[2],
+                                bool *pos_set, bool *size_set,
+                                float pan[2], float *zoom, bool *visible);
 
 // Gui widgets:
 bool gui_collapsing_header(const char *label, bool default_opened);

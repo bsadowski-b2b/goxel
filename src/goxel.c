@@ -25,19 +25,22 @@
 
 #include "../ext_src/stb/stb_ds.h"
 
+#include <ctype.h>
 #include <errno.h> // IWYU pragma: keep.
 #include <stdarg.h>
 
 // The global goxel instance.
 goxel_t goxel = {};
 
+static void reference_image_unload(void);
+
 texture_t *texture_new_image(const char *path, int flags)
 {
     char *data;
     uint8_t *img;
     bool need_to_free = false;
-    int size;
-    int w, h, bpp = 0;
+    int size = 0;
+    int w = 0, h = 0, bpp = 0;
     texture_t *tex;
 
     if (str_startswith(path, "asset://")) {
@@ -46,9 +49,18 @@ texture_t *texture_new_image(const char *path, int flags)
         data = read_file(path, &size);
         need_to_free = true;
     }
+    if (!data || size <= 0) {
+        if (need_to_free) free(data);
+        return NULL;
+    }
     img = img_read_from_mem(data, size, &w, &h, &bpp);
+    if (!img || w <= 0 || h <= 0 || bpp <= 0) {
+        if (img) free(img);
+        if (need_to_free) free(data);
+        return NULL;
+    }
     tex = texture_new_from_buf(img, w, h, bpp, flags);
-    tex->path = strdup(path);
+    if (tex) tex->path = strdup(path);
     free(img);
     if (need_to_free) free(data);
     return tex;
@@ -572,6 +584,7 @@ void goxel_reset(void)
 void goxel_release(void)
 {
     pathtracer_stop(&goxel.pathtracer);
+    reference_image_unload();
     gui_release();
 }
 
@@ -591,6 +604,7 @@ void goxel_create_graphics(void)
  */
 void goxel_release_graphics(void)
 {
+    reference_image_unload();
     render_deinit();
     model3d_release_graphics();
     gui_release_graphics();
@@ -1444,6 +1458,89 @@ void goxel_add_hint(int flags, const char *title, const char *msg)
     arrput(goxel.hints, hint);
 }
 
+static bool ext_equals(const char *ext, const char *expected)
+{
+    while (*ext && *expected) {
+        if (tolower((unsigned char)*ext) !=
+                tolower((unsigned char)*expected))
+            return false;
+        ext++;
+        expected++;
+    }
+    return *ext == '\0' && *expected == '\0';
+}
+
+static bool is_reference_image_path(const char *path)
+{
+    const char *ext;
+
+    if (!path) return false;
+    ext = strrchr(path, '.');
+    if (!ext) return false;
+    return ext_equals(ext, ".png") ||
+           ext_equals(ext, ".jpg") ||
+           ext_equals(ext, ".jpeg") ||
+           ext_equals(ext, ".bmp");
+}
+
+static void reference_image_unload(void)
+{
+    texture_delete(goxel.gui.reference_image_texture);
+    goxel.gui.reference_image_texture = NULL;
+}
+
+static bool reference_image_load_path(const char *path, bool reset_view)
+{
+    texture_t *tex;
+
+    if (!is_reference_image_path(path)) return false;
+
+    tex = texture_new_image(path, 0);
+    if (!tex) {
+        goxel.gui.reference_image_load_failed = true;
+        return false;
+    }
+
+    reference_image_unload();
+    goxel.gui.reference_image_texture = tex;
+    snprintf(goxel.gui.reference_image_path,
+             sizeof(goxel.gui.reference_image_path), "%s", path);
+    goxel.gui.reference_image_visible = true;
+    goxel.gui.reference_image_load_failed = false;
+    if (reset_view) {
+        goxel.gui.reference_image_zoom = 1.0f;
+        goxel.gui.reference_image_pan[0] = 0.0f;
+        goxel.gui.reference_image_pan[1] = 0.0f;
+    }
+    return true;
+}
+
+bool goxel_reference_image_load(const char *path)
+{
+    if (!reference_image_load_path(path, true))
+        return false;
+    settings_save();
+    return true;
+}
+
+bool goxel_reference_image_reload(void)
+{
+    if (!goxel.gui.reference_image_path[0])
+        return false;
+    return reference_image_load_path(goxel.gui.reference_image_path, false);
+}
+
+void goxel_reference_image_clear(void)
+{
+    reference_image_unload();
+    goxel.gui.reference_image_path[0] = '\0';
+    goxel.gui.reference_image_visible = false;
+    goxel.gui.reference_image_load_failed = false;
+    goxel.gui.reference_image_zoom = 1.0f;
+    goxel.gui.reference_image_pan[0] = 0.0f;
+    goxel.gui.reference_image_pan[1] = 0.0f;
+}
+
 void goxel_import_image_plane(const char *path)
 {
     layer_t *layer;
@@ -1460,6 +1557,13 @@ void goxel_import_image_plane(const char *path)
         mat4_itranslate(layer->mat, 0, 0.5, 0);
     mat4_iscale(layer->mat, layer->image->w, layer->image->h, 1);
     image_history_push(goxel.image);
+}
+
+int goxel_drop_file(const char *path)
+{
+    if (goxel_reference_image_load(path))
+        return 0;
+    return goxel_import_file(path, NULL);
 }
 
 void goxel_on_low_memory(void)

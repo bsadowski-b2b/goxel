@@ -57,7 +57,7 @@ void on_drop(GLFWwindow* win, int count, const char** paths)
 {
     int i;
     for (i = 0;  i < count;  i++)
-        goxel_import_file(paths[i], NULL);
+        goxel_drop_file(paths[i]);
 }
 
 void on_close(GLFWwindow *win)

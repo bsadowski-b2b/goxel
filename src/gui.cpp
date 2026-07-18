@@ -1967,6 +1967,166 @@ bool gui_toolbar_handle(const char *tooltip)
     return ret;
 }
 
+bool gui_reference_image_window(const char *label, texture_t *texture,
+                                float pos[2], float size[2],
+                                bool *pos_set, bool *size_set,
+                                float pan[2], float *zoom, bool *visible)
+{
+    static bool pending_settings_save = false;
+    bool ret = false;
+    bool dirty = false;
+    bool store_now = false;
+    bool opened;
+    bool hovered;
+    float fit;
+    float old_zoom;
+    ImVec2 default_size;
+    ImVec2 win_pos;
+    ImVec2 win_size;
+    ImVec2 canvas_pos;
+    ImVec2 canvas_size;
+    ImVec2 image_size;
+    ImVec2 image_pos;
+    ImVec2 mouse;
+    ImVec2 uv1;
+    ImDrawList *draw_list;
+    ImGuiIO& io = ImGui::GetIO();
+    ImGuiWindowFlags flags = ImGuiWindowFlags_NoCollapse;
+
+    if (!visible || !*visible || !texture)
+        return false;
+
+    default_size = ImVec2(320.0f, 240.0f);
+    if (!*size_set) {
+        size[0] = default_size.x;
+        size[1] = default_size.y;
+    }
+    if (!*pos_set) {
+        pos[0] = max(0.0f, io.DisplaySize.x - size[0] - 16.0f);
+        pos[1] = 180.0f;
+    }
+    pos[0] = clamp(pos[0], 0.0f, max(0.0f, io.DisplaySize.x - 80.0f));
+    pos[1] = clamp(pos[1], 0.0f, max(0.0f, io.DisplaySize.y - 80.0f));
+    size[0] = max(size[0], 180.0f);
+    size[1] = max(size[1], 140.0f);
+    *zoom = clamp(*zoom <= 0.0f ? 1.0f : *zoom, 0.1f, 32.0f);
+
+    ImGui::SetNextWindowPos(ImVec2(pos[0], pos[1]), ImGuiCond_Appearing);
+    ImGui::SetNextWindowSize(ImVec2(size[0], size[1]), ImGuiCond_Appearing);
+    ImGui::SetNextWindowSizeConstraints(ImVec2(180.0f, 140.0f),
+                                        ImVec2(FLT_MAX, FLT_MAX));
+
+    opened = *visible;
+    if (!ImGui::Begin(label, &opened, flags)) {
+        ImGui::End();
+        if (opened != *visible) {
+            *visible = opened;
+            return true;
+        }
+        return false;
+    }
+
+    canvas_pos = ImGui::GetCursorScreenPos();
+    canvas_size = ImGui::GetContentRegionAvail();
+    canvas_size.x = max(canvas_size.x, 1.0f);
+    canvas_size.y = max(canvas_size.y, 1.0f);
+    draw_list = ImGui::GetWindowDrawList();
+    draw_list->AddRectFilled(canvas_pos, canvas_pos + canvas_size,
+                             ImGui::GetColorU32(ImGuiCol_FrameBg));
+
+    fit = min(canvas_size.x / texture->w, canvas_size.y / texture->h);
+    fit = max(fit, 0.01f);
+    image_size = ImVec2(texture->w * fit * *zoom,
+                        texture->h * fit * *zoom);
+    image_pos = canvas_pos + (canvas_size - image_size) * 0.5f +
+                ImVec2(pan[0], pan[1]);
+
+    ImGui::InvisibleButton("##reference_image_canvas", canvas_size,
+                           ImGuiButtonFlags_MouseButtonLeft |
+                           ImGuiButtonFlags_MouseButtonMiddle);
+    update_activation_state();
+    hovered = ImGui::IsItemHovered();
+    if (hovered) {
+        ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeAll);
+        if (io.MouseWheel != 0.0f) {
+            mouse = io.MousePos;
+            old_zoom = *zoom;
+            *zoom = clamp(*zoom * max(0.2f, 1.0f + io.MouseWheel * 0.12f),
+                          0.1f, 32.0f);
+            if (*zoom != old_zoom) {
+                ImVec2 old_image_pos = image_pos;
+                ImVec2 image_coord =
+                    (mouse - old_image_pos) / max(fit * old_zoom, 0.01f);
+                image_size = ImVec2(texture->w * fit * *zoom,
+                                    texture->h * fit * *zoom);
+                image_pos = mouse - image_coord * (fit * *zoom);
+                pan[0] = image_pos.x -
+                    (canvas_pos.x + (canvas_size.x - image_size.x) * 0.5f);
+                pan[1] = image_pos.y -
+                    (canvas_pos.y + (canvas_size.y - image_size.y) * 0.5f);
+                dirty = true;
+                store_now = true;
+            }
+        }
+        if (ImGui::IsMouseDoubleClicked(0)) {
+            *zoom = 1.0f;
+            pan[0] = 0.0f;
+            pan[1] = 0.0f;
+            image_size = ImVec2(texture->w * fit * *zoom,
+                                texture->h * fit * *zoom);
+            image_pos = canvas_pos + (canvas_size - image_size) * 0.5f;
+            dirty = true;
+            store_now = true;
+        }
+    }
+    if ((ImGui::IsMouseDragging(0) || ImGui::IsMouseDragging(2)) &&
+            ImGui::IsItemActive()) {
+        pan[0] += io.MouseDelta.x;
+        pan[1] += io.MouseDelta.y;
+        image_pos = image_pos + io.MouseDelta;
+        dirty = true;
+    }
+
+    draw_list->PushClipRect(canvas_pos, canvas_pos + canvas_size, true);
+    uv1 = ImVec2((float)texture->w / texture->tex_w,
+                 (float)texture->h / texture->tex_h);
+    draw_list->AddImage((intptr_t)texture->tex, image_pos,
+                        image_pos + image_size, ImVec2(0, 0), uv1);
+    draw_list->AddRect(canvas_pos, canvas_pos + canvas_size,
+                       ImGui::GetColorU32(ImGuiCol_Border));
+    draw_list->PopClipRect();
+
+    win_pos = ImGui::GetWindowPos();
+    win_size = ImGui::GetWindowSize();
+    if (!*pos_set || win_pos.x != pos[0] || win_pos.y != pos[1]) {
+        pos[0] = win_pos.x;
+        pos[1] = win_pos.y;
+        *pos_set = true;
+        dirty = true;
+    }
+    if (!*size_set || win_size.x != size[0] || win_size.y != size[1]) {
+        size[0] = win_size.x;
+        size[1] = win_size.y;
+        *size_set = true;
+        dirty = true;
+    }
+    if (opened != *visible) {
+        *visible = opened;
+        dirty = true;
+        store_now = true;
+    }
+
+    ImGui::End();
+
+    if (dirty)
+        pending_settings_save = true;
+    if (pending_settings_save && (store_now || !ImGui::IsAnyMouseDown())) {
+        pending_settings_save = false;
+        ret = true;
+    }
+    return ret;
+}
+
 static bool panel_header_close_button(void)
 {
     float w;

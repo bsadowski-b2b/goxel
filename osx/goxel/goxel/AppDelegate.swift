@@ -48,6 +48,7 @@ class GoxNSOpenGLView: NSOpenGLView, NSWindowDelegate {
         self.openGLContext?.makeCurrentContext()
         self.window?.acceptsMouseMovedEvents = true
         self.window?.delegate = self
+        registerForDraggedTypes([NSPasteboard.PasteboardType.fileURL])
     }
     
     func appDelegate () -> AppDelegate
@@ -134,6 +135,31 @@ class GoxNSOpenGLView: NSOpenGLView, NSWindowDelegate {
             delta /= 8.0;
         }
         appDelegate().inputs.mouse_wheel = delta
+    }
+
+    override func draggingEntered(_ sender: NSDraggingInfo) -> NSDragOperation {
+        return .copy
+    }
+
+    override func draggingUpdated(_ sender: NSDraggingInfo) -> NSDragOperation {
+        return .copy
+    }
+
+    override func performDragOperation(_ sender: NSDraggingInfo) -> Bool {
+        guard let urls = sender.draggingPasteboard.readObjects(
+                forClasses: [NSURL.self], options: nil) as? [NSURL] else {
+            return false
+        }
+
+        var handled = false
+        for url in urls {
+            guard url.isFileURL, let path = url.path else {
+                continue
+            }
+            let result = path.withCString { goxel_drop_file($0) }
+            handled = handled || result == 0
+        }
+        return handled
     }
 
     override func keyDown(with event: NSEvent) {

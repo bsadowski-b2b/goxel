@@ -360,6 +360,28 @@ void gui_app(void)
     filter_layout_state.next_y = y;
     filters_iter_all(&filter_layout_state, gui_filter_window);
 
+    if (goxel.gui.reference_image_visible &&
+            goxel.gui.reference_image_path[0] &&
+            !goxel.gui.reference_image_texture &&
+            !goxel.gui.reference_image_load_failed) {
+        goxel_reference_image_reload();
+    }
+    if (goxel.gui.reference_image_visible &&
+            goxel.gui.reference_image_texture) {
+        if (gui_reference_image_window(
+                    "Reference Image",
+                    goxel.gui.reference_image_texture,
+                    goxel.gui.reference_image_pos,
+                    goxel.gui.reference_image_size,
+                    &goxel.gui.reference_image_pos_set,
+                    &goxel.gui.reference_image_size_set,
+                    goxel.gui.reference_image_pan,
+                    &goxel.gui.reference_image_zoom,
+                    &goxel.gui.reference_image_visible)) {
+            settings_save();
+        }
+    }
+
     goxel.pathtrace = goxel.pathtracer.status &&
         (goxel.gui.current_panel == PANEL_RENDER ||
          PANELS[PANEL_RENDER].detached);

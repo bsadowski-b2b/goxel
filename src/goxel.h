@@ -572,6 +572,17 @@ typedef struct goxel
         int paintbar_orientation;
         int swatchesbar_orientation;
         int leftbar_orientation;
+
+        texture_t *reference_image_texture;
+        char reference_image_path[1024];
+        float reference_image_pos[2];
+        float reference_image_size[2];
+        float reference_image_pan[2];
+        float reference_image_zoom;
+        bool reference_image_visible;
+        bool reference_image_pos_set;
+        bool reference_image_size_set;
+        bool reference_image_load_failed;
     } gui;
 
     char **recent_files; // stb arraw of most recently used files.
@@ -662,6 +673,10 @@ void goxel_add_hint(int flags, const char *title, const char *msg);
 void goxel_import_image_plane(const char *path);
 
 int goxel_import_file(const char *path, const char *format);
+int goxel_drop_file(const char *path);
+bool goxel_reference_image_load(const char *path);
+bool goxel_reference_image_reload(void);
+void goxel_reference_image_clear(void);
 int goxel_export_to_file(const char *path, const char *format);
 
 // Render the view into an RGB[A] buffer.

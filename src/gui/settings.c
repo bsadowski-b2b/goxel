@@ -206,6 +206,20 @@ int gui_settings_popup(void *data)
             gui_reset_toolbar_layout();
             settings_save();
         }
+        if (goxel.gui.reference_image_path[0]) {
+            gui_text("Reference Image");
+            val = goxel.gui.reference_image_visible;
+            if (gui_checkbox("Show Reference Image", &val, NULL)) {
+                goxel.gui.reference_image_visible = val;
+                if (val)
+                    goxel.gui.reference_image_load_failed = false;
+                settings_save();
+            }
+            if (gui_button("Clear Reference Image", 1.0, 0)) {
+                goxel_reference_image_clear();
+                settings_save();
+            }
+        }
 
     } gui_section_end();
 
@@ -384,6 +398,40 @@ static int settings_ini_handler(void *user, const char *section,
                      sizeof(goxel.xcom_gox_repository), "%s", value);
         }
     }
+    if (strcmp(section, "reference") == 0) {
+        if (strcmp(name, "visible") == 0) {
+            goxel.gui.reference_image_visible = atoi(value) != 0;
+        }
+        if (strcmp(name, "path") == 0) {
+            snprintf(goxel.gui.reference_image_path,
+                     sizeof(goxel.gui.reference_image_path), "%s", value);
+        }
+        if (strcmp(name, "x") == 0) {
+            goxel.gui.reference_image_pos[0] = atof(value);
+            goxel.gui.reference_image_pos_set = true;
+        }
+        if (strcmp(name, "y") == 0) {
+            goxel.gui.reference_image_pos[1] = atof(value);
+            goxel.gui.reference_image_pos_set = true;
+        }
+        if (strcmp(name, "w") == 0) {
+            goxel.gui.reference_image_size[0] = atof(value);
+            goxel.gui.reference_image_size_set = true;
+        }
+        if (strcmp(name, "h") == 0) {
+            goxel.gui.reference_image_size[1] = atof(value);
+            goxel.gui.reference_image_size_set = true;
+        }
+        if (strcmp(name, "zoom") == 0) {
+            goxel.gui.reference_image_zoom = atof(value);
+        }
+        if (strcmp(name, "pan_x") == 0) {
+            goxel.gui.reference_image_pan[0] = atof(value);
+        }
+        if (strcmp(name, "pan_y") == 0) {
+            goxel.gui.reference_image_pan[1] = atof(value);
+        }
+    }
     return 0;
 }
 
@@ -403,6 +451,20 @@ void settings_load(void)
     goxel.gui.paintbar_pos_set = false;
     goxel.gui.swatchesbar_pos_set = false;
     goxel.gui.leftbar_pos_set = false;
+    texture_delete(goxel.gui.reference_image_texture);
+    goxel.gui.reference_image_texture = NULL;
+    goxel.gui.reference_image_path[0] = '\0';
+    goxel.gui.reference_image_pos[0] = 0.0f;
+    goxel.gui.reference_image_pos[1] = 0.0f;
+    goxel.gui.reference_image_size[0] = 320.0f;
+    goxel.gui.reference_image_size[1] = 240.0f;
+    goxel.gui.reference_image_pan[0] = 0.0f;
+    goxel.gui.reference_image_pan[1] = 0.0f;
+    goxel.gui.reference_image_zoom = 1.0f;
+    goxel.gui.reference_image_visible = false;
+    goxel.gui.reference_image_pos_set = false;
+    goxel.gui.reference_image_size_set = false;
+    goxel.gui.reference_image_load_failed = false;
     ini_parse(path, settings_ini_handler, NULL);
     if (!goxel.gui.paintbar_pos_set || !goxel.gui.swatchesbar_pos_set) {
         goxel.gui.topbar_pos_set = false;
@@ -505,6 +567,22 @@ void settings_save(void)
 
     fprintf(file, "[xcom]\n");
     fprintf(file, "gox_repository=%s\n", goxel.xcom_gox_repository);
+    fprintf(file, "\n");
+
+    fprintf(file, "[reference]\n");
+    fprintf(file, "visible=%d\n", goxel.gui.reference_image_visible);
+    fprintf(file, "path=%s\n", goxel.gui.reference_image_path);
+    if (goxel.gui.reference_image_pos_set) {
+        fprintf(file, "x=%f\n", goxel.gui.reference_image_pos[0]);
+        fprintf(file, "y=%f\n", goxel.gui.reference_image_pos[1]);
+    }
+    if (goxel.gui.reference_image_size_set) {
+        fprintf(file, "w=%f\n", goxel.gui.reference_image_size[0]);
+        fprintf(file, "h=%f\n", goxel.gui.reference_image_size[1]);
+    }
+    fprintf(file, "zoom=%f\n", goxel.gui.reference_image_zoom);
+    fprintf(file, "pan_x=%f\n", goxel.gui.reference_image_pan[0]);
+    fprintf(file, "pan_y=%f\n", goxel.gui.reference_image_pan[1]);
     fprintf(file, "\n");
 
     fprintf(file, "[shortcuts]\n");
