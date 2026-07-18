@@ -341,6 +341,18 @@ static int settings_ini_handler(void *user, const char *section,
             goxel.gui.leftbar_orientation =
                 layout_orientation_from_string(value);
         }
+        if (strcmp(name, "topbar_folded") == 0) {
+            goxel.gui.topbar_folded = atoi(value) != 0;
+        }
+        if (strcmp(name, "paintbar_folded") == 0) {
+            goxel.gui.paintbar_folded = atoi(value) != 0;
+        }
+        if (strcmp(name, "swatchesbar_folded") == 0) {
+            goxel.gui.swatchesbar_folded = atoi(value) != 0;
+        }
+        if (strcmp(name, "leftbar_folded") == 0) {
+            goxel.gui.leftbar_folded = atoi(value) != 0;
+        }
         if (strcmp(name, "topbar_x") == 0) {
             goxel.gui.topbar_pos[0] = atof(value);
             goxel.gui.topbar_pos_set = true;
@@ -425,11 +437,50 @@ static int settings_ini_handler(void *user, const char *section,
         if (strcmp(name, "zoom") == 0) {
             goxel.gui.reference_image_zoom = atof(value);
         }
+        if (strcmp(name, "alpha") == 0) {
+            goxel.gui.reference_image_alpha = atof(value);
+        }
         if (strcmp(name, "pan_x") == 0) {
             goxel.gui.reference_image_pan[0] = atof(value);
         }
         if (strcmp(name, "pan_y") == 0) {
             goxel.gui.reference_image_pan[1] = atof(value);
+        }
+    }
+    if (strcmp(section, "view_cube") == 0) {
+        if (strcmp(name, "x") == 0) {
+            goxel.gui.view_cube_pos[0] = atof(value);
+            goxel.gui.view_cube_pos_set = true;
+        }
+        if (strcmp(name, "y") == 0) {
+            goxel.gui.view_cube_pos[1] = atof(value);
+            goxel.gui.view_cube_pos_set = true;
+        }
+        if (strcmp(name, "w") == 0) {
+            goxel.gui.view_cube_size[0] = atof(value);
+            goxel.gui.view_cube_size_set = true;
+        }
+        if (strcmp(name, "h") == 0) {
+            goxel.gui.view_cube_size[1] = atof(value);
+            goxel.gui.view_cube_size_set = true;
+        }
+    }
+    if (strcmp(section, "axis_widget") == 0) {
+        if (strcmp(name, "x") == 0) {
+            goxel.gui.axis_widget_pos[0] = atof(value);
+            goxel.gui.axis_widget_pos_set = true;
+        }
+        if (strcmp(name, "y") == 0) {
+            goxel.gui.axis_widget_pos[1] = atof(value);
+            goxel.gui.axis_widget_pos_set = true;
+        }
+        if (strcmp(name, "w") == 0) {
+            goxel.gui.axis_widget_size[0] = atof(value);
+            goxel.gui.axis_widget_size_set = true;
+        }
+        if (strcmp(name, "h") == 0) {
+            goxel.gui.axis_widget_size[1] = atof(value);
+            goxel.gui.axis_widget_size_set = true;
         }
     }
     return 0;
@@ -451,6 +502,10 @@ void settings_load(void)
     goxel.gui.paintbar_pos_set = false;
     goxel.gui.swatchesbar_pos_set = false;
     goxel.gui.leftbar_pos_set = false;
+    goxel.gui.topbar_folded = false;
+    goxel.gui.paintbar_folded = false;
+    goxel.gui.swatchesbar_folded = false;
+    goxel.gui.leftbar_folded = false;
     texture_delete(goxel.gui.reference_image_texture);
     goxel.gui.reference_image_texture = NULL;
     goxel.gui.reference_image_path[0] = '\0';
@@ -461,10 +516,23 @@ void settings_load(void)
     goxel.gui.reference_image_pan[0] = 0.0f;
     goxel.gui.reference_image_pan[1] = 0.0f;
     goxel.gui.reference_image_zoom = 1.0f;
+    goxel.gui.reference_image_alpha = 0.40f;
     goxel.gui.reference_image_visible = false;
     goxel.gui.reference_image_pos_set = false;
     goxel.gui.reference_image_size_set = false;
     goxel.gui.reference_image_load_failed = false;
+    goxel.gui.view_cube_pos[0] = 0.0f;
+    goxel.gui.view_cube_pos[1] = 0.0f;
+    goxel.gui.view_cube_size[0] = 128.0f;
+    goxel.gui.view_cube_size[1] = 128.0f;
+    goxel.gui.view_cube_pos_set = false;
+    goxel.gui.view_cube_size_set = false;
+    goxel.gui.axis_widget_pos[0] = 0.0f;
+    goxel.gui.axis_widget_pos[1] = 0.0f;
+    goxel.gui.axis_widget_size[0] = 112.0f;
+    goxel.gui.axis_widget_size[1] = 112.0f;
+    goxel.gui.axis_widget_pos_set = false;
+    goxel.gui.axis_widget_size_set = false;
     ini_parse(path, settings_ini_handler, NULL);
     if (!goxel.gui.paintbar_pos_set || !goxel.gui.swatchesbar_pos_set) {
         goxel.gui.topbar_pos_set = false;
@@ -547,6 +615,10 @@ void settings_save(void)
             layout_orientation_to_string(goxel.gui.swatchesbar_orientation));
     fprintf(file, "leftbar_orientation=%s\n",
             layout_orientation_to_string(goxel.gui.leftbar_orientation));
+    fprintf(file, "topbar_folded=%d\n", goxel.gui.topbar_folded);
+    fprintf(file, "paintbar_folded=%d\n", goxel.gui.paintbar_folded);
+    fprintf(file, "swatchesbar_folded=%d\n", goxel.gui.swatchesbar_folded);
+    fprintf(file, "leftbar_folded=%d\n", goxel.gui.leftbar_folded);
     if (goxel.gui.topbar_pos_set) {
         fprintf(file, "topbar_x=%f\n", goxel.gui.topbar_pos[0]);
         fprintf(file, "topbar_y=%f\n", goxel.gui.topbar_pos[1]);
@@ -581,8 +653,31 @@ void settings_save(void)
         fprintf(file, "h=%f\n", goxel.gui.reference_image_size[1]);
     }
     fprintf(file, "zoom=%f\n", goxel.gui.reference_image_zoom);
+    fprintf(file, "alpha=%f\n", goxel.gui.reference_image_alpha);
     fprintf(file, "pan_x=%f\n", goxel.gui.reference_image_pan[0]);
     fprintf(file, "pan_y=%f\n", goxel.gui.reference_image_pan[1]);
+    fprintf(file, "\n");
+
+    fprintf(file, "[view_cube]\n");
+    if (goxel.gui.view_cube_pos_set) {
+        fprintf(file, "x=%f\n", goxel.gui.view_cube_pos[0]);
+        fprintf(file, "y=%f\n", goxel.gui.view_cube_pos[1]);
+    }
+    if (goxel.gui.view_cube_size_set) {
+        fprintf(file, "w=%f\n", goxel.gui.view_cube_size[0]);
+        fprintf(file, "h=%f\n", goxel.gui.view_cube_size[1]);
+    }
+    fprintf(file, "\n");
+
+    fprintf(file, "[axis_widget]\n");
+    if (goxel.gui.axis_widget_pos_set) {
+        fprintf(file, "x=%f\n", goxel.gui.axis_widget_pos[0]);
+        fprintf(file, "y=%f\n", goxel.gui.axis_widget_pos[1]);
+    }
+    if (goxel.gui.axis_widget_size_set) {
+        fprintf(file, "w=%f\n", goxel.gui.axis_widget_size[0]);
+        fprintf(file, "h=%f\n", goxel.gui.axis_widget_size[1]);
+    }
     fprintf(file, "\n");
 
     fprintf(file, "[shortcuts]\n");

@@ -76,10 +76,16 @@ void gui_toolbar_end(void);
 
 bool gui_panel_header(const char *label);
 bool gui_toolbar_handle(const char *tooltip);
+bool gui_toolbar_chrome(const char *tooltip, bool *folded);
 bool gui_reference_image_window(const char *label, texture_t *texture,
                                 float pos[2], float size[2],
                                 bool *pos_set, bool *size_set,
-                                float pan[2], float *zoom, bool *visible);
+                                float pan[2], float *zoom, float *alpha,
+                                bool *visible);
+bool gui_view_cube_window(const char *label, float pos[2], float size[2],
+                          bool *pos_set, bool *size_set);
+bool gui_axis_widget_window(const char *label, float pos[2], float size[2],
+                            bool *pos_set, bool *size_set);
 
 // Gui widgets:
 bool gui_collapsing_header(const char *label, bool default_opened);

@@ -192,12 +192,15 @@ void gui_top_bar(int orientation)
     gui_toolbar_begin();
     if (orientation == GUI_LAYOUT_HORIZONTAL) {
         gui_row_begin(0); {
-            gui_toolbar_handle("Drag top toolbar");
-            gui_topbar_actions(orientation);
+            gui_toolbar_chrome("Drag top toolbar",
+                               &goxel.gui.topbar_folded);
+            if (!goxel.gui.topbar_folded)
+                gui_topbar_actions(orientation);
         } gui_row_end();
     } else {
-        gui_toolbar_handle("Drag top toolbar");
-        gui_topbar_actions(orientation);
+        gui_toolbar_chrome("Drag top toolbar", &goxel.gui.topbar_folded);
+        if (!goxel.gui.topbar_folded)
+            gui_topbar_actions(orientation);
     }
     gui_toolbar_end();
 }
@@ -207,14 +210,19 @@ void gui_paint_bar(int orientation)
     gui_toolbar_begin();
     if (orientation == GUI_LAYOUT_HORIZONTAL) {
         gui_row_begin(0); {
-            gui_toolbar_handle("Drag paint toolbar");
-            gui_mode_select(orientation);
-            gui_color("##color", goxel.painter.color);
+            gui_toolbar_chrome("Drag paint toolbar",
+                               &goxel.gui.paintbar_folded);
+            if (!goxel.gui.paintbar_folded) {
+                gui_mode_select(orientation);
+                gui_color("##color", goxel.painter.color);
+            }
         } gui_row_end();
     } else {
-        gui_toolbar_handle("Drag paint toolbar");
-        gui_mode_select(orientation);
-        gui_color("##color", goxel.painter.color);
+        gui_toolbar_chrome("Drag paint toolbar", &goxel.gui.paintbar_folded);
+        if (!goxel.gui.paintbar_folded) {
+            gui_mode_select(orientation);
+            gui_color("##color", goxel.painter.color);
+        }
     }
     gui_toolbar_end();
 }
@@ -224,12 +232,16 @@ void gui_swatches_bar(int orientation)
     gui_toolbar_begin();
     if (orientation == GUI_LAYOUT_HORIZONTAL) {
         gui_row_begin(0); {
-            gui_toolbar_handle("Drag swatches toolbar");
-            gui_xcom_swatches("xcom_color", 0);
+            gui_toolbar_chrome("Drag swatches toolbar",
+                               &goxel.gui.swatchesbar_folded);
+            if (!goxel.gui.swatchesbar_folded)
+                gui_xcom_swatches("xcom_color", 0);
         } gui_row_end();
     } else {
-        gui_toolbar_handle("Drag swatches toolbar");
-        gui_xcom_swatches("xcom_color", 0);
+        gui_toolbar_chrome("Drag swatches toolbar",
+                           &goxel.gui.swatchesbar_folded);
+        if (!goxel.gui.swatchesbar_folded)
+            gui_xcom_swatches("xcom_color", 0);
     }
     gui_toolbar_end();
 }

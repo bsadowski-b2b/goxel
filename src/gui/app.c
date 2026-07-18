@@ -127,12 +127,14 @@ static void render_left_panel(int orientation)
     gui_toolbar_begin();
     if (orientation == GUI_LAYOUT_HORIZONTAL)
         gui_row_begin(0);
-    gui_toolbar_handle("Drag navigation toolbar");
-    for (i = 1; i < (int)ARRAY_SIZE(PANELS); i++) {
-        selected = (goxel.gui.current_panel == i);
-        if (gui_tab(tr(PANELS[i].name), PANELS[i].icon, &selected)) {
-            on_click();
-            goxel.gui.current_panel = selected ? i : 0;
+    gui_toolbar_chrome("Drag navigation toolbar", &goxel.gui.leftbar_folded);
+    if (!goxel.gui.leftbar_folded) {
+        for (i = 1; i < (int)ARRAY_SIZE(PANELS); i++) {
+            selected = (goxel.gui.current_panel == i);
+            if (gui_tab(tr(PANELS[i].name), PANELS[i].icon, &selected)) {
+                on_click();
+                goxel.gui.current_panel = selected ? i : 0;
+            }
         }
     }
     if (orientation == GUI_LAYOUT_HORIZONTAL)
@@ -146,6 +148,10 @@ void gui_reset_toolbar_layout(void)
     goxel.gui.paintbar_pos_set = false;
     goxel.gui.swatchesbar_pos_set = false;
     goxel.gui.leftbar_pos_set = false;
+    goxel.gui.topbar_folded = false;
+    goxel.gui.paintbar_folded = false;
+    goxel.gui.swatchesbar_folded = false;
+    goxel.gui.leftbar_folded = false;
     goxel.gui.topbar_orientation = GUI_LAYOUT_HORIZONTAL;
     goxel.gui.paintbar_orientation = GUI_LAYOUT_HORIZONTAL;
     goxel.gui.swatchesbar_orientation = GUI_LAYOUT_HORIZONTAL;
@@ -380,6 +386,7 @@ void gui_app(void)
                     &goxel.gui.reference_image_size_set,
                     goxel.gui.reference_image_pan,
                     &goxel.gui.reference_image_zoom,
+                    &goxel.gui.reference_image_alpha,
                     &goxel.gui.reference_image_visible)) {
             settings_save();
         }
@@ -389,5 +396,18 @@ void gui_app(void)
         (goxel.gui.current_panel == PANEL_RENDER ||
          PANELS[PANEL_RENDER].detached);
 
-    gui_view_cube(goxel.gui.viewport[2] - 128, item_height + 2, 128, 128);
+    if (gui_view_cube_window("View Cube",
+                             goxel.gui.view_cube_pos,
+                             goxel.gui.view_cube_size,
+                             &goxel.gui.view_cube_pos_set,
+                             &goxel.gui.view_cube_size_set)) {
+        settings_save();
+    }
+    if (gui_axis_widget_window("Axis",
+                               goxel.gui.axis_widget_pos,
+                               goxel.gui.axis_widget_size,
+                               &goxel.gui.axis_widget_pos_set,
+                               &goxel.gui.axis_widget_size_set)) {
+        settings_save();
+    }
 }

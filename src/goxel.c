@@ -1041,34 +1041,6 @@ static void render_pathtrace_view(const float viewport[4])
     render_submit(&goxel.rend, viewport, goxel.back_color);
 }
 
-static void render_axis_arrows(const float viewport[4])
-{
-    float rot[4][4], a[3], b[3], l[3];
-    const float AXIS[][3] = {{1, 0, 0}, {0, 1, 0}, {0, 0, 1}};
-    uint8_t color[4];
-    int i;
-    const float size = 40;
-
-    mat4_copy(get_camera()->mat, rot);
-    vec3_set(rot[3], 0, 0, 0);
-    mat4_invert(rot, rot);
-
-    vec3_set(a, 50, 50, 0); // Origin pos (viewport coordinates)
-    for (i = 0; i < 3; i++) {
-        vec4_set(color, AXIS[i][0] * 255,
-                        AXIS[i][1] * 255,
-                        AXIS[i][2] * 255, 255);
-        vec3_mul(AXIS[i], size, b);
-        mat4_mul_vec3(rot, b, b);
-        vec3_add(a, b, b);
-        render_line(&goxel.rend, a, b, color, EFFECT_PROJ_SCREEN);
-
-        vec3_mul(AXIS[i], size * 0.4, l);
-        mat4_mul_vec3(rot, l, l);
-        vec3_add(b, l, l);
-    }
-}
-
 static bool is_box_face_visible(const float box[4][4], int f)
 {
     float mat[4][4], n[4];
@@ -1306,7 +1278,6 @@ void goxel_render_view(const float viewport[4], bool render_mode)
     if (goxel.show_export_viewport)
         render_export_viewport(viewport);
 
-    render_axis_arrows(viewport);
     render_submit(&goxel.rend, viewport, goxel.back_color);
 }
 

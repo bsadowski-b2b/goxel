@@ -2039,8 +2039,10 @@ bool gui_toolbar_handle(const char *tooltip)
 
     p1 = ImGui::GetItemRectMin();
     p2 = ImGui::GetItemRectMax();
-    bg_col = ImGui::GetColorU32(COLOR(ICON, INNER, hovered || active));
-    line_col = ImGui::GetColorU32(COLOR(BASE, TEXT, false));
+    bg_col = active ? IM_COL32(58, 58, 58, 255) :
+             hovered ? IM_COL32(48, 48, 48, 255) :
+                       IM_COL32(38, 38, 38, 255);
+    line_col = IM_COL32(150, 150, 150, 255);
     draw_list->AddRectFilled(p1, p2, bg_col, style.FrameRounding);
     for (int i = 0; i < 3; i++) {
         float x = p1.x + size * 0.38f + i * 4.0f;
@@ -2054,22 +2056,138 @@ bool gui_toolbar_handle(const char *tooltip)
     return ret;
 }
 
+static bool gui_toolbar_fold_button(bool *folded)
+{
+    bool ret = false;
+    bool active;
+    bool hovered;
+    float size = GUI_ICON_HEIGHT;
+    ImDrawList *draw_list = ImGui::GetWindowDrawList();
+    const ImGuiStyle& style = ImGui::GetStyle();
+    ImVec2 p1, p2, center;
+    ImU32 bg_col, arrow_col;
+    ImVec2 points[3];
+
+    if (!folded) return false;
+    ImGui::PushID("toolbar_fold");
+    if (ImGui::InvisibleButton("##toolbar_fold", ImVec2(size, size))) {
+        *folded = !*folded;
+        settings_save();
+        ret = true;
+    }
+    update_activation_state();
+
+    hovered = ImGui::IsItemHovered();
+    active = ImGui::IsItemActive();
+    if (hovered) {
+        gui_tooltip(*folded ? "Unfold toolbar" : "Fold toolbar");
+    }
+
+    p1 = ImGui::GetItemRectMin();
+    p2 = ImGui::GetItemRectMax();
+    center = (p1 + p2) * 0.5f;
+    bg_col = active ? IM_COL32(58, 58, 58, 255) :
+             hovered ? IM_COL32(48, 48, 48, 255) :
+                       IM_COL32(38, 38, 38, 255);
+    arrow_col = IM_COL32(178, 178, 178, 255);
+    draw_list->AddRectFilled(p1, p2, bg_col, style.FrameRounding);
+    if (*folded) {
+        points[0] = ImVec2(center.x - 3.0f, center.y - 7.0f);
+        points[1] = ImVec2(center.x - 3.0f, center.y + 7.0f);
+        points[2] = ImVec2(center.x + 5.0f, center.y);
+    } else {
+        points[0] = ImVec2(center.x + 4.0f, center.y - 7.0f);
+        points[1] = ImVec2(center.x + 4.0f, center.y + 7.0f);
+        points[2] = ImVec2(center.x - 5.0f, center.y);
+    }
+    draw_list->AddTriangleFilled(points[0], points[1], points[2], arrow_col);
+    ImGui::PopID();
+    return ret;
+}
+
+bool gui_toolbar_chrome(const char *tooltip, bool *folded)
+{
+    bool ret;
+
+    ret = gui_toolbar_handle(tooltip);
+    if (!gui->is_row) ImGui::SameLine();
+    ret |= gui_toolbar_fold_button(folded);
+    if (gui->is_row && folded && !*folded) ImGui::SameLine();
+    return ret;
+}
+
+static void draw_resize_corners(const ImVec2& pos, const ImVec2& size,
+                                bool visible)
+{
+    ImDrawList *draw_list = ImGui::GetWindowDrawList();
+    ImU32 col = visible ? IM_COL32(64, 220, 255, 220) :
+                          IM_COL32(64, 220, 255, 0);
+    float len = 18.0f;
+    float inset = 4.0f;
+    float thick = 2.0f;
+    ImVec2 bl = ImVec2(pos.x + inset, pos.y + size.y - inset);
+    ImVec2 br = ImVec2(pos.x + size.x - inset, pos.y + size.y - inset);
+
+    draw_list->AddLine(bl, ImVec2(bl.x + len, bl.y), col, thick);
+    draw_list->AddLine(bl, ImVec2(bl.x, bl.y - len), col, thick);
+    draw_list->AddLine(br, ImVec2(br.x - len, br.y), col, thick);
+    draw_list->AddLine(br, ImVec2(br.x, br.y - len), col, thick);
+}
+
+static void push_utility_window_style(bool chrome_visible, float alpha)
+{
+    float bg_alpha = chrome_visible ? alpha : 0.0f;
+    float title_alpha = chrome_visible ? 1.0f : 0.0f;
+
+    ImGui::PushStyleColor(ImGuiCol_WindowBg,
+                          ImVec4(0.16f, 0.16f, 0.16f, bg_alpha));
+    ImGui::PushStyleColor(ImGuiCol_TitleBg,
+            color_with_alpha(COLOR(WINDOW, BACKGROUND, false), title_alpha));
+    ImGui::PushStyleColor(ImGuiCol_TitleBgActive,
+            color_with_alpha(COLOR(WINDOW, BACKGROUND, false), title_alpha));
+    ImGui::PushStyleColor(ImGuiCol_TitleBgCollapsed,
+            color_with_alpha(COLOR(WINDOW, BACKGROUND, false), title_alpha));
+    ImGui::PushStyleColor(ImGuiCol_Text,
+            color_with_alpha(COLOR(BASE, TEXT, false), title_alpha));
+    ImGui::PushStyleColor(ImGuiCol_Border,
+            ImVec4(0.35f, 0.35f, 0.35f, title_alpha));
+    ImGui::PushStyleColor(ImGuiCol_ResizeGrip,
+            ImVec4(0.25f, 0.86f, 1.0f, chrome_visible ? 0.45f : 0.0f));
+    ImGui::PushStyleColor(ImGuiCol_ResizeGripHovered,
+            ImVec4(0.25f, 0.86f, 1.0f, chrome_visible ? 0.85f : 0.0f));
+    ImGui::PushStyleColor(ImGuiCol_ResizeGripActive,
+            ImVec4(0.25f, 0.86f, 1.0f, chrome_visible ? 1.0f : 0.0f));
+}
+
+static bool utility_window_hovered(void)
+{
+    return ImGui::IsWindowHovered(
+            ImGuiHoveredFlags_RootAndChildWindows |
+            ImGuiHoveredFlags_AllowWhenBlockedByActiveItem) ||
+        ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows) ||
+        ImGui::IsAnyMouseDown();
+}
+
 bool gui_reference_image_window(const char *label, texture_t *texture,
                                 float pos[2], float size[2],
                                 bool *pos_set, bool *size_set,
-                                float pan[2], float *zoom, bool *visible)
+                                float pan[2], float *zoom, float *alpha,
+                                bool *visible)
 {
-    const ImVec4 bg_color = ImVec4(0.22f, 0.22f, 0.22f, 0.40f);
-    const ImVec4 title_color =
-        color_with_alpha(COLOR(WINDOW, BACKGROUND, false), 1.0f);
+    static bool chrome_visible = false;
     static bool pending_settings_save = false;
     bool ret = false;
     bool dirty = false;
     bool store_now = false;
     bool opened;
     bool hovered;
+    bool window_hovered;
+    float bg_alpha;
+    float chrome_alpha;
+    float title_alpha;
     float fit;
     float old_zoom;
+    float controls_h;
     ImVec2 default_size;
     ImVec2 win_pos;
     ImVec2 win_size;
@@ -2081,10 +2199,17 @@ bool gui_reference_image_window(const char *label, texture_t *texture,
     ImVec2 uv1;
     ImDrawList *draw_list;
     ImGuiIO& io = ImGui::GetIO();
+    const ImGuiStyle& style = ImGui::GetStyle();
     ImGuiWindowFlags flags = ImGuiWindowFlags_NoCollapse;
 
     if (!visible || !*visible || !texture)
         return false;
+    if (!alpha || *alpha <= 0.0f)
+        *alpha = 0.40f;
+    *alpha = clamp(*alpha, 0.05f, 1.0f);
+    bg_alpha = *alpha;
+    chrome_alpha = chrome_visible ? bg_alpha : 0.0f;
+    title_alpha = chrome_visible ? 1.0f : 0.0f;
 
     default_size = ImVec2(320.0f, 240.0f);
     if (!*size_set) {
@@ -2107,14 +2232,29 @@ bool gui_reference_image_window(const char *label, texture_t *texture,
                                         ImVec2(FLT_MAX, FLT_MAX));
 
     opened = *visible;
-    ImGui::PushStyleColor(ImGuiCol_WindowBg, bg_color);
-    ImGui::PushStyleColor(ImGuiCol_FrameBg, bg_color);
-    ImGui::PushStyleColor(ImGuiCol_TitleBg, title_color);
-    ImGui::PushStyleColor(ImGuiCol_TitleBgActive, title_color);
-    ImGui::PushStyleColor(ImGuiCol_TitleBgCollapsed, title_color);
+    ImGui::PushStyleColor(ImGuiCol_WindowBg,
+                          ImVec4(0.22f, 0.22f, 0.22f, chrome_alpha));
+    ImGui::PushStyleColor(ImGuiCol_FrameBg,
+                          ImVec4(0.22f, 0.22f, 0.22f, chrome_alpha));
+    ImGui::PushStyleColor(ImGuiCol_TitleBg,
+            color_with_alpha(COLOR(WINDOW, BACKGROUND, false), title_alpha));
+    ImGui::PushStyleColor(ImGuiCol_TitleBgActive,
+            color_with_alpha(COLOR(WINDOW, BACKGROUND, false), title_alpha));
+    ImGui::PushStyleColor(ImGuiCol_TitleBgCollapsed,
+            color_with_alpha(COLOR(WINDOW, BACKGROUND, false), title_alpha));
+    ImGui::PushStyleColor(ImGuiCol_Text,
+            color_with_alpha(COLOR(BASE, TEXT, false), title_alpha));
+    ImGui::PushStyleColor(ImGuiCol_Border,
+            ImVec4(0.35f, 0.35f, 0.35f, title_alpha));
+    ImGui::PushStyleColor(ImGuiCol_ResizeGrip,
+            ImVec4(0.25f, 0.86f, 1.0f, chrome_visible ? 0.45f : 0.0f));
+    ImGui::PushStyleColor(ImGuiCol_ResizeGripHovered,
+            ImVec4(0.25f, 0.86f, 1.0f, chrome_visible ? 0.85f : 0.0f));
+    ImGui::PushStyleColor(ImGuiCol_ResizeGripActive,
+            ImVec4(0.25f, 0.86f, 1.0f, chrome_visible ? 1.0f : 0.0f));
     if (!ImGui::Begin(label, &opened, flags)) {
         ImGui::End();
-        ImGui::PopStyleColor(5);
+        ImGui::PopStyleColor(10);
         if (opened != *visible) {
             *visible = opened;
             return true;
@@ -2124,6 +2264,10 @@ bool gui_reference_image_window(const char *label, texture_t *texture,
 
     canvas_pos = ImGui::GetCursorScreenPos();
     canvas_size = ImGui::GetContentRegionAvail();
+    controls_h = chrome_visible ? ImGui::GetFrameHeight() +
+                                  style.ItemSpacing.y : 0.0f;
+    if (controls_h > 0.0f && canvas_size.y > controls_h + 1.0f)
+        canvas_size.y -= controls_h;
     canvas_size.x = max(canvas_size.x, 1.0f);
     canvas_size.y = max(canvas_size.y, 1.0f);
     draw_list = ImGui::GetWindowDrawList();
@@ -2190,8 +2334,31 @@ bool gui_reference_image_window(const char *label, texture_t *texture,
                        ImGui::GetColorU32(ImGuiCol_Border));
     draw_list->PopClipRect();
 
+    if (chrome_visible) {
+        bg_alpha = *alpha;
+        ImGui::SetCursorScreenPos(
+                ImVec2(canvas_pos.x,
+                       canvas_pos.y + canvas_size.y + style.ItemSpacing.y));
+        ImGui::PushItemWidth(-1);
+        if (ImGui::SliderFloat("##reference_alpha", &bg_alpha,
+                               0.05f, 1.0f, "Alpha %.0f%%")) {
+            *alpha = clamp(bg_alpha, 0.05f, 1.0f);
+            dirty = true;
+        }
+        if (ImGui::IsItemDeactivated())
+            store_now = true;
+        ImGui::PopItemWidth();
+    }
+
     win_pos = ImGui::GetWindowPos();
     win_size = ImGui::GetWindowSize();
+    window_hovered = ImGui::IsWindowHovered(
+            ImGuiHoveredFlags_RootAndChildWindows |
+            ImGuiHoveredFlags_AllowWhenBlockedByActiveItem);
+    chrome_visible = window_hovered ||
+        ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows) ||
+        ImGui::IsAnyMouseDown();
+    draw_resize_corners(win_pos, win_size, chrome_visible);
     if (!*pos_set || win_pos.x != pos[0] || win_pos.y != pos[1]) {
         pos[0] = win_pos.x;
         pos[1] = win_pos.y;
@@ -2211,7 +2378,7 @@ bool gui_reference_image_window(const char *label, texture_t *texture,
     }
 
     ImGui::End();
-    ImGui::PopStyleColor(5);
+    ImGui::PopStyleColor(10);
 
     if (dirty)
         pending_settings_save = true;
@@ -2220,6 +2387,194 @@ bool gui_reference_image_window(const char *label, texture_t *texture,
         ret = true;
     }
     return ret;
+}
+
+bool gui_view_cube_window(const char *label, float pos[2], float size[2],
+                          bool *pos_set, bool *size_set)
+{
+    static bool chrome_visible = false;
+    bool dirty = false;
+    bool camera_changed;
+    ImGuiIO& io = ImGui::GetIO();
+    camera_t *camera = goxel.image->active_camera;
+    float view[4][4];
+    float view_prev[4][4];
+    const float *projection = (float*)camera->proj_mat;
+    const float zup2yup[4][4] = {
+        {1, 0, 0, 0},
+        {0, 0, -1, 0},
+        {0, 1, 0, 0},
+        {0, 0, 0, 1},
+    };
+    const float yup2zup[4][4] = {
+        {1, 0, 0, 0},
+        {0, 0, 1, 0},
+        {0, -1, 0, 0},
+        {0, 0, 0, 1},
+    };
+    ImVec2 canvas_pos;
+    ImVec2 canvas_size;
+    ImVec2 win_pos;
+    ImVec2 win_size;
+    ImGuizmo::Style &style = ImGuizmo::GetStyle();
+
+    if (!*size_set) {
+        size[0] = 128.0f;
+        size[1] = 128.0f;
+    }
+    if (!*pos_set) {
+        pos[0] = max(0.0f, io.DisplaySize.x - size[0] - 16.0f);
+        pos[1] = 48.0f;
+    }
+    pos[0] = clamp(pos[0], 0.0f, max(0.0f, io.DisplaySize.x - 64.0f));
+    pos[1] = clamp(pos[1], 0.0f, max(0.0f, io.DisplaySize.y - 64.0f));
+    size[0] = max(size[0], 96.0f);
+    size[1] = max(size[1], 96.0f);
+
+    style.Colors[ImGuizmo::DIRECTION_X] =
+        ImVec4(0.666f, 0.000f, 0.000f, 1.000f);
+    style.Colors[ImGuizmo::DIRECTION_Z] =
+        ImVec4(0.000f, 0.666f, 0.000f, 1.000f);
+    style.Colors[ImGuizmo::DIRECTION_Y] =
+        ImVec4(0.000f, 0.000f, 0.666f, 1.000f);
+
+    ImGui::SetNextWindowPos(ImVec2(pos[0], pos[1]), ImGuiCond_Appearing);
+    ImGui::SetNextWindowSize(ImVec2(size[0], size[1]), ImGuiCond_Appearing);
+    ImGui::SetNextWindowSizeConstraints(ImVec2(96.0f, 96.0f),
+                                        ImVec2(FLT_MAX, FLT_MAX));
+    push_utility_window_style(chrome_visible, 0.40f);
+    ImGui::Begin(label, NULL, ImGuiWindowFlags_NoCollapse);
+
+    canvas_pos = ImGui::GetCursorScreenPos();
+    canvas_size = ImGui::GetContentRegionAvail();
+    canvas_size.x = max(canvas_size.x, 1.0f);
+    canvas_size.y = max(canvas_size.y, 1.0f);
+
+    ImGuizmo::SetRect(0, 0, io.DisplaySize.x, io.DisplaySize.y);
+    mat4_mul(zup2yup, camera->mat, view);
+    mat4_invert(view, view);
+    mat4_copy(view, view_prev);
+    ImGuizmo::SetDrawlist();
+    ImGuizmo::SetRect(canvas_pos.x, canvas_pos.y,
+                      canvas_size.x, canvas_size.y);
+    ImGuizmo::ViewManipulate(
+           (float*)view, projection,
+           ImGuizmo::ROTATE, ImGuizmo::LOCAL,
+           (float*)&mat4_identity, camera->dist,
+           canvas_pos, canvas_size, 0x0);
+
+    camera_changed = memcmp(view, view_prev, sizeof(view_prev)) != 0;
+    if (camera_changed) {
+        mat4_invert(view, view);
+        mat4_mul(yup2zup, view, camera->mat);
+    }
+
+    win_pos = ImGui::GetWindowPos();
+    win_size = ImGui::GetWindowSize();
+    chrome_visible = utility_window_hovered();
+    draw_resize_corners(win_pos, win_size, chrome_visible);
+    if (!*pos_set || win_pos.x != pos[0] || win_pos.y != pos[1]) {
+        pos[0] = win_pos.x;
+        pos[1] = win_pos.y;
+        *pos_set = true;
+        dirty = true;
+    }
+    if (!*size_set || win_size.x != size[0] || win_size.y != size[1]) {
+        size[0] = win_size.x;
+        size[1] = win_size.y;
+        *size_set = true;
+        dirty = true;
+    }
+
+    ImGui::End();
+    ImGui::PopStyleColor(9);
+    return dirty;
+}
+
+bool gui_axis_widget_window(const char *label, float pos[2], float size[2],
+                            bool *pos_set, bool *size_set)
+{
+    static bool chrome_visible = false;
+    bool dirty = false;
+    float rot[4][4], b[3];
+    const float AXIS[][3] = {{1, 0, 0}, {0, 1, 0}, {0, 0, 1}};
+    const char *LABELS[] = {"X", "Y", "Z"};
+    const ImU32 COLORS[] = {
+        IM_COL32(230, 72, 72, 255),
+        IM_COL32(64, 210, 95, 255),
+        IM_COL32(80, 130, 255, 255),
+    };
+    ImGuiIO& io = ImGui::GetIO();
+    ImDrawList *draw_list;
+    ImVec2 canvas_pos;
+    ImVec2 canvas_size;
+    ImVec2 win_pos;
+    ImVec2 win_size;
+    ImVec2 center;
+    float len;
+
+    if (!*size_set) {
+        size[0] = 112.0f;
+        size[1] = 112.0f;
+    }
+    if (!*pos_set) {
+        pos[0] = 16.0f;
+        pos[1] = max(0.0f, io.DisplaySize.y - size[1] - 16.0f);
+    }
+    pos[0] = clamp(pos[0], 0.0f, max(0.0f, io.DisplaySize.x - 64.0f));
+    pos[1] = clamp(pos[1], 0.0f, max(0.0f, io.DisplaySize.y - 64.0f));
+    size[0] = max(size[0], 88.0f);
+    size[1] = max(size[1], 88.0f);
+
+    ImGui::SetNextWindowPos(ImVec2(pos[0], pos[1]), ImGuiCond_Appearing);
+    ImGui::SetNextWindowSize(ImVec2(size[0], size[1]), ImGuiCond_Appearing);
+    ImGui::SetNextWindowSizeConstraints(ImVec2(88.0f, 88.0f),
+                                        ImVec2(FLT_MAX, FLT_MAX));
+    push_utility_window_style(chrome_visible, 0.40f);
+    ImGui::Begin(label, NULL, ImGuiWindowFlags_NoCollapse);
+
+    canvas_pos = ImGui::GetCursorScreenPos();
+    canvas_size = ImGui::GetContentRegionAvail();
+    canvas_size.x = max(canvas_size.x, 1.0f);
+    canvas_size.y = max(canvas_size.y, 1.0f);
+    center = canvas_pos + canvas_size * 0.5f;
+    len = min(canvas_size.x, canvas_size.y) * 0.34f;
+    draw_list = ImGui::GetWindowDrawList();
+    mat4_copy(goxel.image->active_camera->mat, rot);
+    vec3_set(rot[3], 0, 0, 0);
+    mat4_invert(rot, rot);
+
+    draw_list->AddCircleFilled(center, 3.0f, IM_COL32(230, 230, 230, 220));
+    for (int i = 0; i < 3; i++) {
+        vec3_mul(AXIS[i], len, b);
+        mat4_mul_vec3(rot, b, b);
+        ImVec2 end = center + ImVec2(b[0], b[1]);
+        draw_list->AddLine(center, end, COLORS[i], 2.0f);
+        draw_list->AddCircleFilled(end, 4.0f, COLORS[i]);
+        draw_list->AddText(end + ImVec2(5.0f, -6.0f), COLORS[i],
+                           LABELS[i]);
+    }
+
+    win_pos = ImGui::GetWindowPos();
+    win_size = ImGui::GetWindowSize();
+    chrome_visible = utility_window_hovered();
+    draw_resize_corners(win_pos, win_size, chrome_visible);
+    if (!*pos_set || win_pos.x != pos[0] || win_pos.y != pos[1]) {
+        pos[0] = win_pos.x;
+        pos[1] = win_pos.y;
+        *pos_set = true;
+        dirty = true;
+    }
+    if (!*size_set || win_size.x != size[0] || win_size.y != size[1]) {
+        size[0] = win_size.x;
+        size[1] = win_size.y;
+        *size_set = true;
+        dirty = true;
+    }
+
+    ImGui::End();
+    ImGui::PopStyleColor(9);
+    return dirty;
 }
 
 static bool panel_header_close_button(void)

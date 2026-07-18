@@ -568,6 +568,10 @@ typedef struct goxel
         bool paintbar_pos_set;
         bool swatchesbar_pos_set;
         bool leftbar_pos_set;
+        bool topbar_folded;
+        bool paintbar_folded;
+        bool swatchesbar_folded;
+        bool leftbar_folded;
         int topbar_orientation;
         int paintbar_orientation;
         int swatchesbar_orientation;
@@ -579,10 +583,21 @@ typedef struct goxel
         float reference_image_size[2];
         float reference_image_pan[2];
         float reference_image_zoom;
+        float reference_image_alpha;
         bool reference_image_visible;
         bool reference_image_pos_set;
         bool reference_image_size_set;
         bool reference_image_load_failed;
+
+        float view_cube_pos[2];
+        float view_cube_size[2];
+        bool view_cube_pos_set;
+        bool view_cube_size_set;
+
+        float axis_widget_pos[2];
+        float axis_widget_size[2];
+        bool axis_widget_pos_set;
+        bool axis_widget_size_set;
     } gui;
 
     char **recent_files; // stb arraw of most recently used files.
