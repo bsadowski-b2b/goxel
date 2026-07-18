@@ -61,11 +61,8 @@ class GoxNSOpenGLView: NSOpenGLView, NSWindowDelegate {
     }
 
     func mouseButtonID(_ event: NSEvent) -> Int {
-        switch event.buttonNumber {
-        case 3: return 3
-        case 4: return 4
-        default: return 1
-        }
+        let id = event.buttonNumber
+        return id >= 3 && id <= 7 ? id : 1
     }
 
     func setMouseButton(_ id: Int, _ down: Bool, _ pressed: Bool) {

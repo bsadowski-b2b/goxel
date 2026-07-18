@@ -2114,7 +2114,7 @@ ACTION_REGISTER(ACTION_set_mode_sub,
     .cfunc_data = a_set_mode,
     .data = (int[]){MODE_SUB},
     .icon = ICON_MODE_SUB,
-    .default_shortcut = "R",
+    .default_shortcut = "Mouse4",
 )
 
 ACTION_REGISTER(ACTION_set_mode_paint,
@@ -2123,5 +2123,5 @@ ACTION_REGISTER(ACTION_set_mode_paint,
     .cfunc_data = a_set_mode,
     .data = (int[]){MODE_PAINT},
     .icon = ICON_MODE_PAINT,
-    .default_shortcut = "G",
+    .default_shortcut = "Mouse5",
 )

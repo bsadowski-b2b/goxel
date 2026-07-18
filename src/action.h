@@ -51,7 +51,7 @@ struct action {
     const char      *help;
     int             flags;
     const char      *default_shortcut;
-    char            shortcut[8];    // Can be changed at runtime.
+    char            shortcut[16];   // Can be changed at runtime.
     int             icon;           // Optional icon id.
     void            *data;
 

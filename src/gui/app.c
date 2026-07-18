@@ -331,9 +331,7 @@ void gui_app(void)
 
     if (goxel.gui.current_panel) {
         name = tr(PANELS[goxel.gui.current_panel].name);
-        flags = GUI_WINDOW_MOVABLE;
-        if (goxel.gui.current_panel == PANEL_TOOLS)
-            flags |= GUI_WINDOW_TRANSLUCENT_BACKGROUND;
+        flags = GUI_WINDOW_MOVABLE | GUI_WINDOW_TRANSLUCENT_BACKGROUND;
         flags = gui_window_begin(
                 name, x, y, goxel.gui.panel_width, 0, flags);
         if (gui_panel_header(name))
@@ -351,9 +349,7 @@ void gui_app(void)
     for (i = 0; i < ARRAY_SIZE(PANELS); i++) {
         if (!PANELS[i].detached) continue;
         name = tr(PANELS[i].name);
-        flags = GUI_WINDOW_MOVABLE;
-        if (i == PANEL_TOOLS)
-            flags |= GUI_WINDOW_TRANSLUCENT_BACKGROUND;
+        flags = GUI_WINDOW_MOVABLE | GUI_WINDOW_TRANSLUCENT_BACKGROUND;
         gui_window_begin(name, 0, 0, goxel.gui.panel_width, 0, flags);
         if (gui_panel_header(name)) {
             PANELS[i].detached = false;

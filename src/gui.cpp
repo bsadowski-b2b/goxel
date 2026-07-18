@@ -288,6 +288,19 @@ static bool isCharPressed(int c)
     return g.IO.InputQueueCharacters[0] == c;
 }
 
+static bool parse_mouse_shortcut(const char *s, int *button)
+{
+    char *end = NULL;
+    long id;
+
+    if (!str_startswith(s, "Mouse")) return false;
+    id = strtol(s + strlen("Mouse"), &end, 10);
+    if (!end || *end != '\0') return false;
+    if (id < 1 || id > INPUT_MOUSE_BUTTON_COUNT) return false;
+    *button = id - 1;
+    return true;
+}
+
 #define COLOR(g, c, s) ({ \
         uint8_t c_[4]; \
         theme_get_color(THEME_GROUP_##g, THEME_COLOR_##c, (s), c_); \
@@ -554,9 +567,11 @@ static int alert_popup(void *data)
 static int check_action_shortcut(action_t *action, void *user)
 {
     ImGuiIO& io = ImGui::GetIO();
+    const inputs_t *inputs = (const inputs_t*)user;
     const char *s = action->shortcut;
     bool check_key = true;
     bool check_char = true;
+    int mouse_button;
     if (!*s) return 0;
 
     if (io.KeyCtrl) {
@@ -573,6 +588,15 @@ static int check_action_shortcut(action_t *action, void *user)
 
     if (str_startswith(s, "Ctrl")) return 0;
     if (str_startswith(s, "Shift")) return 0;
+
+    if (parse_mouse_shortcut(s, &mouse_button)) {
+        if (inputs && !io.WantCaptureMouse &&
+                inputs->mouse_pressed[mouse_button]) {
+            action_exec(action);
+            return 1;
+        }
+        return 0;
+    }
 
     if (    (check_char && isCharPressed(s[0])) ||
             (check_key && ImGui::IsKeyPressed((ImGuiKey)s[0], false))) {
@@ -763,13 +787,6 @@ static void gui_iter(const inputs_t *inputs)
     if (ImGui::IsKeyPressed((ImGuiKey)KEY_DELETE, false))
         action_exec2(ACTION_layer_clear);
 
-    if (inputs && !io.WantCaptureKeyboard && !io.WantCaptureMouse) {
-        if (inputs->mouse_pressed[3])
-            action_exec2(ACTION_set_mode_sub);
-        if (inputs->mouse_pressed[4])
-            action_exec2(ACTION_set_mode_paint);
-    }
-
     if (!io.WantCaptureKeyboard) {
         float last_tool_radius = goxel.tool_radius;
         if (isCharPressed('[')) goxel.tool_radius -= 0.5;
@@ -777,7 +794,7 @@ static void gui_iter(const inputs_t *inputs)
         if (goxel.tool_radius != last_tool_radius) {
             goxel.tool_radius = clamp(goxel.tool_radius, 0.5, 64);
         }
-        actions_iter(check_action_shortcut, NULL);
+        actions_iter(check_action_shortcut, (void*)inputs);
     }
     ImGui::EndFrame();
     gui->want_capture_mouse = io.WantCaptureMouse;
@@ -916,9 +933,9 @@ int gui_window_begin(const char *label, float x, float y, float w, float h,
     assert(gui->win_style_color_count == 0);
     if (flags & GUI_WINDOW_TRANSLUCENT_BACKGROUND) {
         ImGui::PushStyleColor(ImGuiCol_WindowBg,
-                color_with_alpha(COLOR(WINDOW, BACKGROUND, false), 0.40f));
+                color_with_alpha(COLOR(WINDOW, BACKGROUND, false), 0.70f));
         ImGui::PushStyleColor(ImGuiCol_ChildBg,
-                color_with_alpha(COLOR(SECTION, BACKGROUND, false), 0.40f));
+                color_with_alpha(COLOR(SECTION, BACKGROUND, false), 0.70f));
         gui->win_style_color_count = 2;
     }
 
@@ -2042,7 +2059,7 @@ bool gui_reference_image_window(const char *label, texture_t *texture,
                                 bool *pos_set, bool *size_set,
                                 float pan[2], float *zoom, bool *visible)
 {
-    const ImVec4 bg_color = ImVec4(0.22f, 0.22f, 0.22f, 0.80f);
+    const ImVec4 bg_color = ImVec4(0.22f, 0.22f, 0.22f, 0.40f);
     const ImVec4 title_color =
         color_with_alpha(COLOR(WINDOW, BACKGROUND, false), 1.0f);
     static bool pending_settings_save = false;
@@ -2240,6 +2257,15 @@ bool gui_panel_header(const char *label)
     bool ret;
     float label_w = ImGui::CalcTextSize(label).x;
     float w = ImGui::GetContentRegionAvail().x - gui_get_item_height();
+    ImDrawList *draw_list = ImGui::GetWindowDrawList();
+    ImVec2 p1 = ImGui::GetCursorScreenPos();
+    ImVec2 p2 = ImVec2(p1.x + ImGui::GetContentRegionAvail().x,
+                       p1.y + gui_get_item_height());
+
+    draw_list->AddRectFilled(
+            p1, p2,
+            ImGui::GetColorU32(color_with_alpha(
+                    COLOR(WINDOW, BACKGROUND, false), 1.0f)));
 
     ImGui::PushID("panel_header");
     ImGui::BeginGroup();
