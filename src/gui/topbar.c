@@ -67,7 +67,6 @@ static void gui_topbar_actions(void)
         ACTION_layer_clear,
         ACTION_view_default,
         ACTION_view_toggle_grid_edges,
-        ACTION_xcom_save_swatch_palette,
     };
 
     gui_group_begin(NULL);
@@ -111,21 +110,50 @@ static int gui_mode_select(void)
     return 0;
 }
 
-void gui_top_bar(void)
+static void gui_xcom_swatches(const char *id_prefix, int per_row)
 {
     int i;
-    char label[32];
+    char label[64];
 
+    for (i = 0; i < XCOM_SWATCHES_COUNT; i++) {
+        if (per_row && i % per_row == 0)
+            gui_row_begin(0);
+        snprintf(label, sizeof(label), "##%s_%d", id_prefix, i);
+        gui_color_swatch(label, goxel.image->xcom_swatches[i],
+                         goxel.painter.color);
+        if (per_row && (i % per_row == per_row - 1 ||
+                        i == XCOM_SWATCHES_COUNT - 1))
+            gui_row_end();
+    }
+}
+
+void gui_xcom_panel(void)
+{
+    gui_request_panel_width(260);
+
+    if (gui_section_begin(_("Swatches"), false)) {
+        gui_color_small(_("Active"), goxel.painter.color);
+        gui_xcom_swatches("xcom_panel_swatch", 4);
+        gui_section_end();
+    }
+
+    if (gui_section_begin(_("Save"), false)) {
+        gui_action_button(ACTION_save, _("Save .gox"), 1.0);
+        gui_action_button(ACTION_save_as, _("Save .gox As"), 1.0);
+        gui_action_button(ACTION_xcom_save_swatch_palette,
+                          _("Save Palette"), 1.0);
+        gui_section_end();
+    }
+}
+
+void gui_top_bar(void)
+{
     gui_row_begin(0); {
         gui_topbar_actions();
         gui_row_begin(0); {
             gui_mode_select();
             gui_color("##color", goxel.painter.color);
-            for (i = 0; i < XCOM_SWATCHES_COUNT; i++) {
-                snprintf(label, sizeof(label), "##xcom_swatch_%d", i);
-                gui_color_swatch(label, goxel.image->xcom_swatches[i],
-                                 goxel.painter.color);
-            }
+            gui_xcom_swatches("xcom_swatch", 0);
         } gui_row_end();
     } gui_row_end();
 }
