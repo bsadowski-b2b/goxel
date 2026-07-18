@@ -127,6 +127,7 @@ int gui_settings_popup(void *data)
     const tr_lang_t *languages;
     bool val;
     float scale;
+    const char *path;
 
     if (gui_section_begin(_("Language"), GUI_SECTION_COLLAPSABLE)) {
         language = tr_get_language();
@@ -175,6 +176,24 @@ int gui_settings_popup(void *data)
             gesture_set_emulate_three_buttons_mouse(
                     goxel.emulate_three_buttons_mouse);
             settings_save();
+        }
+    } gui_section_end();
+
+    if (gui_section_begin("XCom", GUI_SECTION_COLLAPSABLE_CLOSED)) {
+        gui_text("Gox Repository");
+        gui_input_text("##xcom_gox_repository", goxel.xcom_gox_repository,
+                       sizeof(goxel.xcom_gox_repository));
+        if (gui_is_item_deactivated()) settings_save();
+        if (gui_button(_("Browse"), 0, 0)) {
+            path = sys_open_folder_dialog(
+                    "XCom Gox Repository",
+                    goxel.xcom_gox_repository[0] ?
+                        goxel.xcom_gox_repository : NULL);
+            if (path) {
+                snprintf(goxel.xcom_gox_repository,
+                         sizeof(goxel.xcom_gox_repository), "%s", path);
+                settings_save();
+            }
         }
     } gui_section_end();
 
@@ -270,6 +289,12 @@ static int settings_ini_handler(void *user, const char *section,
             }
         }
     }
+    if (strcmp(section, "xcom") == 0) {
+        if (strcmp(name, "gox_repository") == 0) {
+            snprintf(goxel.xcom_gox_repository,
+                     sizeof(goxel.xcom_gox_repository), "%s", value);
+        }
+    }
     return 0;
 }
 
@@ -280,6 +305,7 @@ void settings_load(void)
     LOG_I("Read settings file: %s", path);
     arrfree(goxel.keymaps);
     goxel.emulate_three_buttons_mouse = 0;
+    goxel.xcom_gox_repository[0] = '\0';
     ini_parse(path, settings_ini_handler, NULL);
     actions_check_shortcuts();
     gesture_set_emulate_three_buttons_mouse(goxel.emulate_three_buttons_mouse);
@@ -348,6 +374,10 @@ void settings_save(void)
     fprintf(file, "theme=%s\n", theme_get()->name);
     fprintf(file, "language=%s\n", goxel.lang);
     fprintf(file, "scale=%f\n", gui_get_scale());
+    fprintf(file, "\n");
+
+    fprintf(file, "[xcom]\n");
+    fprintf(file, "gox_repository=%s\n", goxel.xcom_gox_repository);
     fprintf(file, "\n");
 
     fprintf(file, "[shortcuts]\n");

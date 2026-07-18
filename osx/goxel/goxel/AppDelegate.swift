@@ -351,14 +351,16 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         if flags == 2 { // Open directory.
             if let panel = panel as? NSOpenPanel {
-                panel.canChooseDirectories = false
+                panel.canChooseDirectories = true
                 panel.canChooseFiles = false
             }
         }
 
         if let defaultPathAndFile {
             let pathString = String(cString: defaultPathAndFile)
-            if pathString.contains("/") {
+            if flags == 2 {
+                panel.directoryURL = URL(fileURLWithPath: pathString)
+            } else if pathString.contains("/") {
                 let url = URL(fileURLWithPath: pathString)
                 panel.directoryURL = url.deletingLastPathComponent()
                 panel.nameFieldStringValue = url.lastPathComponent

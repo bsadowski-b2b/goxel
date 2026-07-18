@@ -572,6 +572,8 @@ typedef struct goxel
     // Can be set to a key code (only KEY_LEFT_ALT is supported for now).
     int emulate_three_buttons_mouse;
 
+    char xcom_gox_repository[1024];
+
     // Stb arrary of hints to show on top of the screen.
     hint_t *hints;
 

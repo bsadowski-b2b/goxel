@@ -82,6 +82,7 @@ static int parse_gpl(const char *data, char *name, int *columns,
             continue;
         }
 
+        entry_name[0] = '\0';
         if (sscanf(start, "%d %d %d %[^\n]", &r, &g, &b, entry_name) >= 3) {
             if (entries) {
                 strcpy(entries[nb].name, entry_name);
@@ -95,6 +96,48 @@ static int parse_gpl(const char *data, char *name, int *columns,
         if (!*end) break;
     }
     return nb;
+}
+
+static int parse_dat(const uint8_t *data, int len, palette_entry_t *entries);
+static int parse_png(const void *data, int len, palette_t *palette);
+
+void palette_clear(palette_t *palette)
+{
+    free(palette->entries);
+    memset(palette, 0, sizeof(*palette));
+}
+
+int palette_load_from_file(const char *path, palette_t *palette)
+{
+    char *data;
+    const char *name;
+    int size, err = -1;
+
+    memset(palette, 0, sizeof(*palette));
+    data = read_file(path, &size);
+    if (!data) return -1;
+
+    name = strrchr(path, '/');
+    name = name ? name + 1 : path;
+    if (str_endswith(path, ".gpl")) {
+        palette->size = parse_gpl(data, palette->name, &palette->columns, NULL);
+        palette->entries = calloc(palette->size, sizeof(*palette->entries));
+        err = parse_gpl(data, NULL, NULL, palette->entries);
+    }
+    else if (str_endswith(path, ".dat")) {
+        snprintf(palette->name, sizeof(palette->name), "%s", name);
+        palette->size = 256;
+        palette->entries = calloc(palette->size, sizeof(*palette->entries));
+        err = parse_dat((void*)data, size, palette->entries);
+    }
+    else if (str_endswith(path, ".png")) {
+        snprintf(palette->name, sizeof(palette->name), "%s", name);
+        err = parse_png(data, size, palette);
+    }
+
+    free(data);
+    if (err < 0) palette_clear(palette);
+    return err;
 }
 
 /*
@@ -152,9 +195,7 @@ static int on_palette(int i, const char *path, void *user)
 static int on_palette2(const char *dir, const char *name, void *user)
 {
     palette_t **list = user;
-    char *data;
     char path[1024];
-    int size, err = 0;
     palette_t *pal;
 
     if (    !str_endswith(name, ".gpl") &&
@@ -164,32 +205,13 @@ static int on_palette2(const char *dir, const char *name, void *user)
 
     snprintf(path, sizeof(path), "%s/%s", dir, name);
     pal = calloc(1, sizeof(*pal));
-    data = read_file(path, &size);
-    if (str_endswith(name, ".gpl")) {
-        pal->size = parse_gpl(data, pal->name, &pal->columns, NULL);
-        pal->entries = calloc(pal->size, sizeof(*pal->entries));
-        err = parse_gpl(data, NULL, NULL, pal->entries);
-    }
-    else if (str_endswith(name, ".dat")) {
-        snprintf(pal->name, sizeof(pal->name), "%s", name);
-        pal->size = 256;
-        pal->entries = calloc(pal->size, sizeof(*pal->entries));
-        err = parse_dat((void*)data, size, pal->entries);
-    }
-    else if (str_endswith(name, ".png")) {
-        snprintf(pal->name, sizeof(pal->name), "%s", name);
-        err = parse_png(data, size, pal);
-    }
-
-    if (err < 0) {
+    if (palette_load_from_file(path, pal) < 0) {
         LOG_E("Cannot parse palette %s", path);
         free(pal);
-        goto end;
+        return 0;
     }
 
     DL_APPEND(*list, pal);
-end:
-    free(data);
     return 0;
 }
 

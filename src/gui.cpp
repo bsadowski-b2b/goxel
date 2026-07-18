@@ -1371,6 +1371,7 @@ bool gui_color_swatch(const char *label, uint8_t color[4],
 {
     bool ret = false;
     ImVec2 size(GUI_ICON_HEIGHT, GUI_ICON_HEIGHT);
+    ImDrawList* draw_list = ImGui::GetWindowDrawList();
 
     ImGui::PushID(label);
     if (ImGui::ColorButton(label, color, 0, size)) {
@@ -1385,6 +1386,12 @@ bool gui_color_swatch(const char *label, uint8_t color[4],
             ret = true;
         }
         ImGui::EndPopup();
+    }
+    if (active_color && memcmp(color, active_color, 4) == 0) {
+        ImVec2 c1 = ImGui::GetItemRectMin() - ImVec2(2, 2);
+        ImVec2 c2 = ImGui::GetItemRectMax() + ImVec2(2, 2);
+        draw_list->AddRect(c1, c2, IM_COL32(255, 255, 64, 255), 0, 0, 3);
+        draw_list->AddRect(c1, c2, IM_COL32(0, 0, 0, 255), 0, 0, 1);
     }
 
     ImGui::PopID();

@@ -28,7 +28,7 @@ static void a_xcom_save_swatch_palette(void)
     FILE *file;
     int i;
 
-    snprintf(path, sizeof(path), "%s/palettes/XCom Toolbar Swatches.gpl",
+    snprintf(path, sizeof(path), "%s/palettes/XCom Toolbar Palette.gpl",
              sys_get_user_dir());
     sys_make_dir(path);
     file = fopen(path, "w");
@@ -38,23 +38,55 @@ static void a_xcom_save_swatch_palette(void)
     }
 
     fprintf(file, "GIMP Palette\n");
-    fprintf(file, "Name: XCom Toolbar Swatches\n");
+    fprintf(file, "Name: XCom Toolbar Palette\n");
     fprintf(file, "Columns: %d\n", XCOM_SWATCHES_COUNT);
     fprintf(file, "#\n");
     for (i = 0; i < XCOM_SWATCHES_COUNT; i++) {
-        fprintf(file, "%3d %3d %3d\tXCom Swatch %d\n",
+        fprintf(file, "%3d %3d %3d\tXCom Color %d\n",
                 goxel.image->xcom_swatches[i][0],
                 goxel.image->xcom_swatches[i][1],
                 goxel.image->xcom_swatches[i][2],
                 i + 1);
     }
     fclose(file);
-    goxel_add_hint(0, NULL, "Saved XCom swatches palette");
+    goxel_add_hint(0, NULL, "Saved XCom palette");
 }
 
 ACTION_REGISTER(ACTION_xcom_save_swatch_palette,
-    .help = N_("Saves toolbar swatches as a palette"),
+    .help = N_("Saves toolbar palette"),
     .cfunc = a_xcom_save_swatch_palette,
+    .icon = ICON_PALETTE,
+)
+
+static void a_xcom_load_swatch_palette(void)
+{
+    const char *path;
+    const char *filters[] = {"*.gpl", "*.dat", "*.png", NULL};
+    palette_t palette;
+    int i, nb;
+
+    path = sys_open_file_dialog("Load XCom Palette", NULL, filters,
+                                "gpl, dat, png");
+    if (!path) return;
+    if (palette_load_from_file(path, &palette) < 0) {
+        LOG_E("Cannot load XCom palette from %s", path);
+        return;
+    }
+
+    nb = min(palette.size, XCOM_SWATCHES_COUNT);
+    for (i = 0; i < nb; i++) {
+        memcpy(goxel.image->xcom_swatches[i], palette.entries[i].color, 4);
+    }
+    if (nb > 0 && memcmp(goxel.painter.color,
+                         goxel.image->xcom_swatches[0], 4) != 0)
+        memcpy(goxel.painter.color, goxel.image->xcom_swatches[0], 4);
+    palette_clear(&palette);
+    goxel_add_hint(0, NULL, "Loaded XCom palette");
+}
+
+ACTION_REGISTER(ACTION_xcom_load_swatch_palette,
+    .help = N_("Loads toolbar palette"),
+    .cfunc = a_xcom_load_swatch_palette,
     .icon = ICON_PALETTE,
 )
 
@@ -131,17 +163,18 @@ void gui_xcom_panel(void)
 {
     gui_request_panel_width(260);
 
-    if (gui_section_begin(_("Swatches"), false)) {
-        gui_color_small(_("Active"), goxel.painter.color);
-        gui_xcom_swatches("xcom_panel_swatch", 4);
+    if (gui_section_begin(_("Palette"), false)) {
+        gui_xcom_swatches("xcom_panel_color", 4);
         gui_section_end();
     }
 
-    if (gui_section_begin(_("Save"), false)) {
+    if (gui_section_begin(_("Save"), GUI_SECTION_COLLAPSABLE)) {
         gui_action_button(ACTION_save, _("Save .gox"), 1.0);
         gui_action_button(ACTION_save_as, _("Save .gox As"), 1.0);
         gui_action_button(ACTION_xcom_save_swatch_palette,
                           _("Save Palette"), 1.0);
+        gui_action_button(ACTION_xcom_load_swatch_palette,
+                          _("Load Palette"), 1.0);
         gui_section_end();
     }
 }
@@ -153,7 +186,7 @@ void gui_top_bar(void)
         gui_row_begin(0); {
             gui_mode_select();
             gui_color("##color", goxel.painter.color);
-            gui_xcom_swatches("xcom_swatch", 0);
+            gui_xcom_swatches("xcom_color", 0);
         } gui_row_end();
     } gui_row_end();
 }

@@ -275,7 +275,8 @@ const char *sys_open_folder_dialog(const char *title,
 
     if (sys_callbacks.open_dialog) {
         return sys_callbacks.open_dialog(sys_callbacks.user,
-                buf, sizeof(buf), 2, title, NULL, 0, NULL, NULL) ? buf : NULL;
+                buf, sizeof(buf), 2, title, default_path, 0, NULL, NULL) ?
+                buf : NULL;
     }
     assert(false);
     return NULL;

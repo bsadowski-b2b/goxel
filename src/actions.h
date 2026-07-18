@@ -64,6 +64,7 @@ enum {
     ACTION_view_toggle_grid_edges,
     ACTION_view_front,
     ACTION_xcom_save_swatch_palette,
+    ACTION_xcom_load_swatch_palette,
     ACTION_quit,
     ACTION_undo,
     ACTION_redo,

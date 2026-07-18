@@ -41,6 +41,8 @@ struct palette {
 
 // Load all the available palettes into a list.
 void palette_load_all(palette_t **list);
+int palette_load_from_file(const char *path, palette_t *palette);
+void palette_clear(palette_t *palette);
 
 /*
  * Function: palette_search
