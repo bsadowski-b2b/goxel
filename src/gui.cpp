@@ -1356,6 +1356,32 @@ bool gui_color(const char *label, uint8_t color[4])
     return ret;
 }
 
+bool gui_color_swatch(const char *label, uint8_t color[4],
+                      uint8_t active_color[4])
+{
+    bool ret = false;
+    ImVec2 size(GUI_ICON_HEIGHT, GUI_ICON_HEIGHT);
+
+    ImGui::PushID(label);
+    if (ImGui::ColorButton(label, color, 0, size)) {
+        vec4_copy(color, active_color);
+        on_click();
+        ret = true;
+    }
+
+    if (ImGui::BeginPopupContextItem("GoxelPicker")) {
+        if (color_picker(label, color)) {
+            vec4_copy(color, active_color);
+            ret = true;
+        }
+        ImGui::EndPopup();
+    }
+
+    ImGui::PopID();
+    if (gui->is_row) ImGui::SameLine();
+    return ret;
+}
+
 bool gui_color_small(const char *label, uint8_t color[4])
 {
     bool ret;

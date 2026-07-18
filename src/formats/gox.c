@@ -283,6 +283,9 @@ void save_to_file(const image_t *img, const char *path)
         chunk_write_dict_value(&c, out, "box", &img->box, sizeof(img->box));
     chunk_write_finish(&c, out);
 
+    chunk_write_all(out, "XSWC", (char*)img->xcom_swatches,
+                    sizeof(img->xcom_swatches));
+
     preview = calloc(128 * 128, 4);
     goxel_render_to_buf(preview, 128, 128, 4);
     png = img_write_to_mem(preview, 128, 128, 4, &size);
@@ -647,6 +650,14 @@ int load_from_file(const char *path, bool replace)
                                           &dict_value_size, __LINE__))) {
                 DICT_CPY("box", goxel.image->box);
             }
+        } else if (strncmp(c.type, "XSWC", 4) == 0) {
+            if (replace &&
+                    c.length == (int)sizeof(goxel.image->xcom_swatches)) {
+                chunk_read(&c, in, (char*)goxel.image->xcom_swatches,
+                           (int)sizeof(goxel.image->xcom_swatches), __LINE__);
+            } else {
+                chunk_read(&c, in, NULL, c.length, __LINE__);
+            }
         } else if (strncmp(c.type, "LIGH", 4) == 0) {
             while ((chunk_read_dict_value(&c, in, dict_key, dict_value,
                                           &dict_value_size, __LINE__))) {
@@ -688,12 +699,12 @@ int load_from_file(const char *path, bool replace)
     if (box_is_null(goxel.image->box)) {
         volume_get_bbox(goxel_get_layers_volume(goxel.image), aabb, true);
         if (aabb[0][0] > aabb[1][0]) {
-            aabb[0][0] = -16;
-            aabb[0][1] = -16;
+            aabb[0][0] = -32;
+            aabb[0][1] = -32;
             aabb[0][2] = 0;
-            aabb[1][0] = 16;
-            aabb[1][1] = 16;
-            aabb[1][2] = 32;
+            aabb[1][0] = 32;
+            aabb[1][1] = 32;
+            aabb[1][2] = 80;
         }
         bbox_from_aabb(goxel.image->box, aabb);
     }

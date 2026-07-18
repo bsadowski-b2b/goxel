@@ -26,6 +26,8 @@
 #include <stdint.h>
 #include <stdbool.h>
 
+#define XCOM_SWATCHES_COUNT 8
+
 typedef struct history history_t;
 
 typedef struct image image_t;
@@ -39,6 +41,8 @@ struct image {
 
     material_t *materials;
     material_t *active_material;
+
+    uint8_t xcom_swatches[XCOM_SWATCHES_COUNT][4];
 
     float    box[4][4];
 

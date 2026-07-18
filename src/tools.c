@@ -19,15 +19,25 @@
 #include "goxel.h"
 
 static const tool_t *g_tools[TOOL_COUNT] = {};
+static tool_t *g_previous_tool = NULL;
 
-static void a_tool_set(void *data)
+static void set_active_tool(tool_t *tool)
 {
-    tool_t *tool = data;
     if (goxel.tool_volume) {
         volume_delete(goxel.tool_volume);
         goxel.tool_volume = NULL;
     }
     goxel.tool = tool;
+}
+
+static void a_tool_set(void *data)
+{
+    tool_t *tool = data;
+    if (    tool->id == TOOL_PICK_COLOR &&
+            goxel.tool && goxel.tool->id != TOOL_PICK_COLOR) {
+        g_previous_tool = goxel.tool;
+    }
+    set_active_tool(tool);
 }
 
 void tool_register_(tool_t *tool)
@@ -70,6 +80,10 @@ static int pick_color_gesture(gesture3d_t *gest)
     goxel_add_hint(0, NULL, hint_msg);
     if (gest->type == GESTURE3D_TYPE_CLICK) {
         vec4_copy(color, goxel.painter.color);
+        if (    goxel.tool && goxel.tool->id == TOOL_PICK_COLOR &&
+                g_previous_tool && g_previous_tool->id != TOOL_PICK_COLOR) {
+            set_active_tool(g_previous_tool);
+        }
     }
     return 0;
 }

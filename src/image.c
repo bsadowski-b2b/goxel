@@ -113,6 +113,21 @@ static layer_t *layer_clone(layer_t *other)
     return layer;
 }
 
+static void init_xcom_swatches(image_t *img)
+{
+    static const uint8_t COLORS[XCOM_SWATCHES_COUNT][4] = {
+        {255, 255, 255, 255},
+        {128, 128, 128, 255},
+        { 32,  32,  32, 255},
+        {200,  48,  48, 255},
+        { 48, 160,  80, 255},
+        { 48,  96, 200, 255},
+        {220, 180,  48, 255},
+        {160,  80, 200, 255},
+    };
+    memcpy(img->xcom_swatches, COLORS, sizeof(img->xcom_swatches));
+}
+
 // Make sure the layer volume is up to date.
 void image_update(image_t *img)
 {
@@ -149,10 +164,11 @@ image_t *image_new(void)
     layer_t *layer;
     image_t *img = calloc(1, sizeof(*img));
     img->ref = 1;
-    const int aabb[2][3] = {{-16, -16, 0}, {16, 16, 32}};
+    const int aabb[2][3] = {{-32, -32, 0}, {32, 32, 80}};
     bbox_from_aabb(img->box, aabb);
     img->export_width = 1024;
     img->export_height = 1024;
+    init_xcom_swatches(img);
     image_add_material(img, NULL);
     image_add_camera(img, NULL);
     layer = image_add_layer(img, NULL);
@@ -225,6 +241,8 @@ static void image_restore(image_t *img, const image_t *snap)
     // Copy other attributes.
     mat4_copy(snap->box, img->box);
     mat4_copy(snap->selection_box, img->selection_box);
+    memcpy(img->xcom_swatches, snap->xcom_swatches,
+           sizeof(img->xcom_swatches));
 
     volume_delete(img->selection_mask);
     img->selection_mask = NULL;
@@ -245,6 +263,8 @@ static image_t *image_snapshot(const image_t *other)
     img = calloc(1, sizeof(*img));
     mat4_copy(other->box, img->box);
     mat4_copy(other->selection_box, img->selection_box);
+    memcpy(img->xcom_swatches, other->xcom_swatches,
+           sizeof(img->xcom_swatches));
 
     DL_FOREACH(other->layers, other_layer) {
         layer = layer_copy(other_layer);
@@ -739,6 +759,7 @@ uint32_t image_get_key(const image_t *img)
         k = material_get_hash(material);
         key = XXH32(&k, sizeof(k), key);
     }
+    key = XXH32(img->xcom_swatches, sizeof(img->xcom_swatches), key);
     key = XXH32(img->selection_box, sizeof(img->selection_box), key);
     k = volume_get_key(img->selection_mask);
     key = XXH32(&k, sizeof(k), key);

@@ -18,7 +18,66 @@
 
 #include "goxel.h"
 
+#include <errno.h>
+
 #ifndef GUI_CUSTOM_TOPBAR
+
+static void a_xcom_save_swatch_palette(void)
+{
+    char path[1024];
+    FILE *file;
+    int i;
+
+    snprintf(path, sizeof(path), "%s/palettes/XCom Toolbar Swatches.gpl",
+             sys_get_user_dir());
+    sys_make_dir(path);
+    file = fopen(path, "w");
+    if (!file) {
+        LOG_E("Cannot save palette to %s: %s", path, strerror(errno));
+        return;
+    }
+
+    fprintf(file, "GIMP Palette\n");
+    fprintf(file, "Name: XCom Toolbar Swatches\n");
+    fprintf(file, "Columns: %d\n", XCOM_SWATCHES_COUNT);
+    fprintf(file, "#\n");
+    for (i = 0; i < XCOM_SWATCHES_COUNT; i++) {
+        fprintf(file, "%3d %3d %3d\tXCom Swatch %d\n",
+                goxel.image->xcom_swatches[i][0],
+                goxel.image->xcom_swatches[i][1],
+                goxel.image->xcom_swatches[i][2],
+                i + 1);
+    }
+    fclose(file);
+    goxel_add_hint(0, NULL, "Saved XCom swatches palette");
+}
+
+ACTION_REGISTER(ACTION_xcom_save_swatch_palette,
+    .help = N_("Saves toolbar swatches as a palette"),
+    .cfunc = a_xcom_save_swatch_palette,
+    .icon = ICON_PALETTE,
+)
+
+static void gui_topbar_actions(void)
+{
+    int i;
+    static const int ACTIONS[] = {
+        ACTION_undo,
+        ACTION_redo,
+        ACTION_layer_clear,
+        ACTION_view_default,
+        ACTION_view_toggle_grid_edges,
+        ACTION_xcom_save_swatch_palette,
+    };
+
+    gui_group_begin(NULL);
+    gui_row_begin(0);
+    for (i = 0; i < ARRAY_SIZE(ACTIONS); i++) {
+        gui_action_button(ACTIONS[i], NULL, 0);
+    }
+    gui_row_end();
+    gui_group_end();
+}
 
 static int gui_mode_select(void)
 {
@@ -54,17 +113,19 @@ static int gui_mode_select(void)
 
 void gui_top_bar(void)
 {
+    int i;
+    char label[32];
+
     gui_row_begin(0); {
-        gui_group_begin(NULL); {
-            gui_row_begin(0); {
-                gui_action_button(ACTION_undo, NULL, 0);
-                gui_action_button(ACTION_redo, NULL, 0);
-            } gui_row_end();
-        } gui_group_end();
+        gui_topbar_actions();
         gui_row_begin(0); {
-            gui_action_button(ACTION_layer_clear, NULL, 0);
             gui_mode_select();
             gui_color("##color", goxel.painter.color);
+            for (i = 0; i < XCOM_SWATCHES_COUNT; i++) {
+                snprintf(label, sizeof(label), "##xcom_swatch_%d", i);
+                gui_color_swatch(label, goxel.image->xcom_swatches[i],
+                                 goxel.painter.color);
+            }
         } gui_row_end();
     } gui_row_end();
 }

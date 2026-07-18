@@ -207,9 +207,15 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     @available(macOS 10.10, *)
     func applicationDidFinishLaunching(_ aNotification: Notification) {
-        // Set fullscreen.
+        // Keep the fork responsive on macOS OpenGL by avoiding a huge Retina-sized startup window.
         if let screen = NSScreen.main {
-            window.setFrame(screen.visibleFrame, display: true, animate: true)
+            let visible = screen.visibleFrame
+            let size = NSSize(width: min(CGFloat(1280), visible.width),
+                              height: min(CGFloat(900), visible.height))
+            let origin = NSPoint(x: visible.midX - size.width / 2,
+                                 y: visible.midY - size.height / 2)
+            window.setFrame(NSRect(origin: origin, size: size),
+                            display: true, animate: true)
         }
         timer = Timer(timeInterval: 1.0 / 60.0,
             target: self,
@@ -232,7 +238,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 let paths = NSSearchPathForDirectoriesInDomains(
                     .applicationSupportDirectory, .userDomainMask, true)
                 if paths.count > 0 {
-                    mySelf.userDirectory = (paths[0] + "/Goxel").cString(using: .utf8);
+                    mySelf.userDirectory = (paths[0] + "/Goxel XCom Fork").cString(using: .utf8);
                 }
             }
 
@@ -338,4 +344,3 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         return true
     }
 }
-

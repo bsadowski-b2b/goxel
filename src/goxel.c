@@ -606,8 +606,8 @@ static void update_window_title(void)
     bool changed;
 
     changed = image_get_key(goxel.image) != goxel.image->saved_key;
-    sprintf(buf, "Goxel %s%s %s%s%s",
-            GOXEL_VERSION_STR,
+    snprintf(buf, sizeof(buf), "%s %s%s %s%s%s",
+            GOXEL_APP_NAME, GOXEL_VERSION_STR,
             DEBUG ? " (debug)" : "",
             changed ? "*" : "",
             goxel.image->path ?: goxel.image->export_path ?: "",
@@ -865,31 +865,7 @@ static int on_hover(const gesture_t *gest, void *user)
 // Add hints for the current navigation keymaps.
 static void update_keymaps_hints(void)
 {
-    int i, action, input, mask = 0;
-    char title[128];
-    const char *msg = "";
-
-    for (i = 0; i < arrlen(goxel.keymaps); i++) {
-        action = goxel.keymaps[i].action;
-        input = goxel.keymaps[i].input;
-
-        if (action == 2) continue; // Don't show for zoom.
-        // Only show the first keymap per action.
-        if (mask & (1 << action)) continue;
-        mask |= 1 << action;
-
-        title[0] = '\0';
-        snprintf(title, sizeof(title), "%s%s%s%s",
-                 (input & GESTURE_CTRL) ? "Ctrl+" : "",
-                 (input & GESTURE_SHIFT) ? "Shift+" : "",
-                 (input & GESTURE_MMB) ? GLYPH_MOUSE_MMB : "",
-                 (input & GESTURE_RMB) ? GLYPH_MOUSE_RMB : "");
-
-        if (action == 0) msg = "Pan View";
-        if (action == 1) msg = "Rotate View";
-        if (action == 2) msg = "Zoom";
-        goxel_add_hint(0, title, msg);
-    }
+    // XCom fork: keep the top area free of mouse navigation reminders.
 }
 
 // XXX: Cleanup this.
@@ -1776,6 +1752,23 @@ ACTION_REGISTER(ACTION_view_default,
     .flags = ACTION_CAN_EDIT_SHORTCUT,
     .cfunc = a_view_default,
     .default_shortcut = "0",
+    .icon = ICON_CAMERA,
+)
+
+static void a_view_toggle_grid_edges(void)
+{
+    const int flags = EFFECT_GRID | EFFECT_EDGES;
+    if ((goxel.view_effects & flags) == flags)
+        goxel.view_effects &= ~flags;
+    else
+        goxel.view_effects |= flags;
+}
+
+ACTION_REGISTER(ACTION_view_toggle_grid_edges,
+    .help = N_("Toggles grid and edges"),
+    .flags = ACTION_CAN_EDIT_SHORTCUT,
+    .cfunc = a_view_toggle_grid_edges,
+    .icon = ICON_VIEW,
 )
 
 ACTION_REGISTER(ACTION_view_front,

@@ -20,7 +20,7 @@
 
 int gui_about_popup(void *data)
 {
-    gui_text("Goxel " GOXEL_VERSION_STR);
+    gui_text(GOXEL_APP_NAME " " GOXEL_VERSION_STR);
     gui_text("Copyright © 2015-2022 Guillaume Chereau");
     gui_text("<guillaume@noctua-software.com>");
     gui_text("All right reserved");

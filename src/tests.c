@@ -129,9 +129,32 @@ static void test_load_corrupt(void)
     sys_delete_file("/tmp/goxel_test.gox");
 }
 
+static void test_xcom_swatches_file_roundtrip(void)
+{
+    int err;
+    uint8_t swatches[XCOM_SWATCHES_COUNT][4];
+
+    if (DEFINED(WIN32)) return; // Don't test on Windows for the moment!
+
+    memcpy(goxel.image->xcom_swatches[0], (uint8_t[]){1, 2, 3, 255}, 4);
+    memcpy(goxel.image->xcom_swatches[7], (uint8_t[]){250, 128, 64, 255}, 4);
+    memcpy(swatches, goxel.image->xcom_swatches, sizeof(swatches));
+
+    save_to_file(goxel.image, "/tmp/goxel_xcom_swatches.gox");
+    memset(goxel.image->xcom_swatches, 0, sizeof(goxel.image->xcom_swatches));
+    err = load_from_file("/tmp/goxel_xcom_swatches.gox", true);
+    TEST(err == 0);
+    TEST(memcmp(goxel.image->xcom_swatches, swatches, sizeof(swatches)) == 0);
+
+    image_delete(goxel.image);
+    goxel.image = image_new();
+    sys_delete_file("/tmp/goxel_xcom_swatches.gox");
+}
+
 void tests_run(void)
 {
     test_load_file_v2();
     test_load_file_v1_with_preview();
     test_load_corrupt();
+    test_xcom_swatches_file_roundtrip();
 }

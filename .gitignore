@@ -12,5 +12,6 @@ xcuserdata/
 /todo
 /.vimrc
 /compile_commands.json
+/build/
 /TAGS
 /.cache

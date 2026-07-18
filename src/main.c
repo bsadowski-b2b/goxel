@@ -19,6 +19,9 @@
 #include "goxel.h"
 #include "script.h"
 #include <getopt.h>
+#if !defined(WIN32) && !defined(__EMSCRIPTEN__)
+#   include <unistd.h>
+#endif
 
 #include "../ext_src/nfd/nfd.h"
 #include "../ext_src/nfd/nfd_glfw3.h"
@@ -27,6 +30,10 @@
 #   define GLFW_INCLUDE_ES2
 #endif
 #include <GLFW/glfw3.h>
+
+#define DEFAULT_WINDOW_WIDTH 1280
+#define DEFAULT_WINDOW_HEIGHT 900
+#define FRAME_TIME_USEC (1000000 / 60)
 
 static inputs_t     *g_inputs = NULL;
 static float        g_scale = 1;
@@ -148,7 +155,7 @@ static void parse_options(int argc, char **argv, args_t *args)
             print_help();
             exit(0);
         case OPT_VERSION:
-            printf("Goxel " GOXEL_VERSION_STR "\n");
+            printf(GOXEL_APP_NAME " " GOXEL_VERSION_STR "\n");
             exit(0);
         case OPT_SCRIPT:
             args->script = optarg;
@@ -217,6 +224,9 @@ static void loop_function(void *arg)
     glfwSwapBuffers(window);
 end:
     glfwPollEvents();
+#if !defined(WIN32) && !defined(__EMSCRIPTEN__)
+    usleep(FRAME_TIME_USEC);
+#endif
 }
 
 #ifndef __EMSCRIPTEN__
@@ -371,7 +381,9 @@ int main(int argc, char **argv)
     GLFWwindow *window;
     GLFWmonitor *monitor;
     const GLFWvidmode *mode;
-    int width = 640, height = 480, ret = 0;
+    int width = DEFAULT_WINDOW_WIDTH;
+    int height = DEFAULT_WINDOW_HEIGHT;
+    int ret = 0;
     inputs_t inputs = {};
     g_inputs = &inputs;
 
@@ -386,8 +398,11 @@ int main(int argc, char **argv)
 
     glfwSetErrorCallback(on_glfw_error);
     glfwInit();
-    glfwWindowHint(GLFW_SAMPLES, 4);
+    glfwWindowHint(GLFW_SAMPLES, 0);
     glfwWindowHint(GLFW_DOUBLEBUFFER, GLFW_TRUE);
+#ifdef __APPLE__
+    glfwWindowHint(GLFW_COCOA_RETINA_FRAMEBUFFER, GLFW_FALSE);
+#endif
 
     // Is there a clean way to create a maximized window
     // that works both on Windows, Mac and Linux?
@@ -395,15 +410,17 @@ int main(int argc, char **argv)
         monitor = glfwGetPrimaryMonitor();
         mode = glfwGetVideoMode(monitor);
         if (mode) {
-            width = mode->width ?: 640;
-            height = mode->height ?: 480;
+            width = min(DEFAULT_WINDOW_WIDTH, mode->width ?: DEFAULT_WINDOW_WIDTH);
+            height = min(DEFAULT_WINDOW_HEIGHT, mode->height ?: DEFAULT_WINDOW_HEIGHT);
         }
-        window = glfwCreateWindow(width, height, "Goxel", NULL, NULL);
+        window = glfwCreateWindow(width, height, GOXEL_APP_NAME, NULL, NULL);
         assert(window);
-        glfwSetWindowPos(window, 0, 0);
+        if (mode)
+            glfwSetWindowPos(window, max(0, (mode->width - width) / 2),
+                             max(0, (mode->height - height) / 2));
     } else {
         glfwWindowHint(GLFW_MAXIMIZED, GLFW_TRUE);
-	window = glfwCreateWindow(width, height, "Goxel", NULL, NULL);
+	window = glfwCreateWindow(width, height, GOXEL_APP_NAME, NULL, NULL);
         assert(window);
     }
 
@@ -411,7 +428,7 @@ int main(int argc, char **argv)
     glfwMakeContextCurrent(window);
     if (!DEFINED(EMSCRIPTEN))
         glfwSetScrollCallback(window, on_scroll);
-    glfwSwapInterval(1);
+    glfwSwapInterval(0);
     glfwSetDropCallback(window, on_drop);
     glfwSetCharCallback(window, on_char);
     glfwSetWindowCloseCallback(window, on_close);
