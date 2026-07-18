@@ -385,7 +385,7 @@ enum {
 
     X(ICON_ADD,                     0, 2, 0),
     X(ICON_REMOVE,                  1, 2, 0),
-    X(ICON_ARROW_BACK,              2, 2, 0),
+    X(ICON_ARROW_BACK,              2, 2, THEME_GROUP_ICON),
     X(ICON_ARROW_FORWARD,           3, 2, 0),
     X(ICON_LINK,                    4, 2, 0),
     X(ICON_MENU,                    5, 2, 0),
