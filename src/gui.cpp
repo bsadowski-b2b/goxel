@@ -124,6 +124,12 @@ static inline ImVec4 color_lighten2(ImVec4 v)
     return color_lighten(v, 0.2);
 }
 
+static inline ImVec4 color_with_alpha(ImVec4 v, float alpha)
+{
+    v.w = alpha;
+    return v;
+}
+
 static texture_t *g_tex_icons = NULL;
 
 static const char *VSHADER =
@@ -199,6 +205,7 @@ typedef struct gui_t {
     int     context_menu_row;
 
     int     win_dir; // Store the current window direction (for scrolling).
+    int     win_style_color_count;
 
     struct {
         const char *title;
@@ -892,6 +899,15 @@ int gui_window_begin(const char *label, float x, float y, float w, float h,
                 ImVec2(0, 0), ImVec2(FLT_MAX, max_size));
     }
 
+    assert(gui->win_style_color_count == 0);
+    if (flags & GUI_WINDOW_TRANSLUCENT_BACKGROUND) {
+        ImGui::PushStyleColor(ImGuiCol_WindowBg,
+                color_with_alpha(COLOR(WINDOW, BACKGROUND, false), 0.40f));
+        ImGui::PushStyleColor(ImGuiCol_ChildBg,
+                color_with_alpha(COLOR(SECTION, BACKGROUND, false), 0.40f));
+        gui->win_style_color_count = 2;
+    }
+
     ImGui::Begin(label, NULL, win_flags);
 
     if (flags & GUI_WINDOW_MOVABLE) {
@@ -919,6 +935,10 @@ gui_window_ret_t gui_window_end(void)
     ret.h = ImGui::GetWindowHeight();
     ret.w = ImGui::GetWindowWidth();
     ImGui::End();
+    if (gui->win_style_color_count) {
+        ImGui::PopStyleColor(gui->win_style_color_count);
+        gui->win_style_color_count = 0;
+    }
     ImGui::PopID();
 
     return ret;
@@ -1986,6 +2006,9 @@ bool gui_reference_image_window(const char *label, texture_t *texture,
                                 bool *pos_set, bool *size_set,
                                 float pan[2], float *zoom, bool *visible)
 {
+    const ImVec4 bg_color = ImVec4(0.22f, 0.22f, 0.22f, 0.80f);
+    const ImVec4 title_color =
+        color_with_alpha(COLOR(WINDOW, BACKGROUND, false), 1.0f);
     static bool pending_settings_save = false;
     bool ret = false;
     bool dirty = false;
@@ -2031,8 +2054,14 @@ bool gui_reference_image_window(const char *label, texture_t *texture,
                                         ImVec2(FLT_MAX, FLT_MAX));
 
     opened = *visible;
+    ImGui::PushStyleColor(ImGuiCol_WindowBg, bg_color);
+    ImGui::PushStyleColor(ImGuiCol_FrameBg, bg_color);
+    ImGui::PushStyleColor(ImGuiCol_TitleBg, title_color);
+    ImGui::PushStyleColor(ImGuiCol_TitleBgActive, title_color);
+    ImGui::PushStyleColor(ImGuiCol_TitleBgCollapsed, title_color);
     if (!ImGui::Begin(label, &opened, flags)) {
         ImGui::End();
+        ImGui::PopStyleColor(5);
         if (opened != *visible) {
             *visible = opened;
             return true;
@@ -2131,6 +2160,7 @@ bool gui_reference_image_window(const char *label, texture_t *texture,
     }
 
     ImGui::End();
+    ImGui::PopStyleColor(5);
 
     if (dirty)
         pending_settings_save = true;

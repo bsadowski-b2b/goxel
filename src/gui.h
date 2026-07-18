@@ -36,6 +36,7 @@ typedef struct texture texture_t;
 enum {
     GUI_WINDOW_MOVABLE                  = 1 << 0,
     GUI_WINDOW_HORIZONTAL               = 1 << 1, // For scrolling.
+    GUI_WINDOW_TRANSLUCENT_BACKGROUND   = 1 << 3,
 
     // Return flags.
     GUI_WINDOW_MOVED                    = 1 << 2,
