@@ -52,6 +52,8 @@ typedef struct {
     bool    down[3];
 } touch_t;
 
+#define INPUT_MOUSE_BUTTON_COUNT 8
+
 typedef struct {
     int top;
     int bottom;
@@ -66,6 +68,8 @@ typedef struct inputs
     bool        keys[512]; // Table of all the pressed keys.
     uint32_t    chars[16];
     touch_t     touches[4];
+    bool        mouse_buttons[INPUT_MOUSE_BUTTON_COUNT];
+    bool        mouse_pressed[INPUT_MOUSE_BUTTON_COUNT];
     float       mouse_wheel;
     int         framebuffer; // Screen framebuffer
 

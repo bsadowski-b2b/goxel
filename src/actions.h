@@ -79,6 +79,7 @@ enum {
     ACTION_reset,
 
     ACTION_tool_set_brush,
+    ACTION_tool_set_noise_brush,
     ACTION_tool_set_laser,
     ACTION_tool_set_shape,
     ACTION_tool_set_pick_color,

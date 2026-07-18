@@ -25,6 +25,7 @@
 enum {
     TOOL_NONE = 0,
     TOOL_BRUSH,
+    TOOL_NOISE_BRUSH,
     TOOL_SHAPE,
     TOOL_LINE,
     TOOL_LASER,
@@ -72,8 +73,8 @@ struct tool {
                 .id = id_, .action_id = "tool_set_" #name_, __VA_ARGS__ \
             } \
         }; \
-    static void GOX_register_tool_##tool_(void) __attribute__((constructor)); \
-    static void GOX_register_tool_##tool_(void) { \
+    static void GOX_register_tool_##name_(void) __attribute__((constructor)); \
+    static void GOX_register_tool_##name_(void) { \
         tool_register_(&GOX_tool_##id_.tool); \
     }
 

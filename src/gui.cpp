@@ -679,6 +679,9 @@ static void gui_iter(const inputs_t *inputs)
         io.MouseDown[0] = inputs->touches[0].down[0];
         io.MouseDown[1] = inputs->touches[0].down[1];
         io.MouseDown[2] = inputs->touches[0].down[2];
+        for (i = 3; i < ARRAY_SIZE(inputs->mouse_buttons) &&
+                    i < (unsigned int)IM_ARRAYSIZE(io.MouseDown); i++)
+            io.MouseDown[i] = inputs->mouse_buttons[i];
         gui->margins = inputs->safe_margins;
         io.MouseWheel = inputs->mouse_wheel;
 
@@ -725,6 +728,13 @@ static void gui_iter(const inputs_t *inputs)
     // Handle the shortcuts.  XXX: this should be done with actions.
     if (ImGui::IsKeyPressed((ImGuiKey)KEY_DELETE, false))
         action_exec2(ACTION_layer_clear);
+
+    if (inputs && !io.WantCaptureKeyboard && !io.WantCaptureMouse) {
+        if (inputs->mouse_pressed[3])
+            action_exec2(ACTION_set_mode_sub);
+        if (inputs->mouse_pressed[4])
+            action_exec2(ACTION_set_mode_paint);
+    }
 
     if (!io.WantCaptureKeyboard) {
         float last_tool_radius = goxel.tool_radius;

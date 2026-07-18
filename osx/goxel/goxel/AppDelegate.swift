@@ -58,6 +58,49 @@ class GoxNSOpenGLView: NSOpenGLView, NSWindowDelegate {
     override var acceptsFirstResponder: Bool {
         return true
     }
+
+    func mouseButtonID(_ event: NSEvent) -> Int {
+        switch event.buttonNumber {
+        case 3: return 3
+        case 4: return 4
+        default: return 1
+        }
+    }
+
+    func setMouseButton(_ id: Int, _ down: Bool, _ pressed: Bool) {
+        let delegate = appDelegate()
+        switch id {
+        case 0:
+            delegate.inputs.touches.0.down.0 = down
+            delegate.inputs.mouse_buttons.0 = down
+            if pressed { delegate.inputs.mouse_pressed.0 = true }
+        case 1:
+            delegate.inputs.touches.0.down.1 = down
+            delegate.inputs.mouse_buttons.1 = down
+            if pressed { delegate.inputs.mouse_pressed.1 = true }
+        case 2:
+            delegate.inputs.touches.0.down.2 = down
+            delegate.inputs.mouse_buttons.2 = down
+            if pressed { delegate.inputs.mouse_pressed.2 = true }
+        case 3:
+            delegate.inputs.mouse_buttons.3 = down
+            if pressed { delegate.inputs.mouse_pressed.3 = true }
+        case 4:
+            delegate.inputs.mouse_buttons.4 = down
+            if pressed { delegate.inputs.mouse_pressed.4 = true }
+        case 5:
+            delegate.inputs.mouse_buttons.5 = down
+            if pressed { delegate.inputs.mouse_pressed.5 = true }
+        case 6:
+            delegate.inputs.mouse_buttons.6 = down
+            if pressed { delegate.inputs.mouse_pressed.6 = true }
+        case 7:
+            delegate.inputs.mouse_buttons.7 = down
+            if pressed { delegate.inputs.mouse_pressed.7 = true }
+        default:
+            break
+        }
+    }
     
     func mouseEvent(_ id: Int, _ state: Int, _ event: NSEvent) {
         appDelegate().inputs.touches.0.pos.0 =
@@ -65,17 +108,12 @@ class GoxNSOpenGLView: NSOpenGLView, NSWindowDelegate {
         appDelegate().inputs.touches.0.pos.1 =
             Float(self.frame.height - event.locationInWindow.y);
 
-        // XXX: find a way to make it work with unsage memory.
-        switch (id) {
-        case 0: appDelegate().inputs.touches.0.down.0 = (state != 0);
-        case 1: appDelegate().inputs.touches.0.down.1 = (state != 0);
-        case 2: appDelegate().inputs.touches.0.down.2 = (state != 0);
-        default: break;
-        }
+        setMouseButton(id, state != 0, state == 1)
         // Force an update after a mousedown event to make sure that it will
         // be recognised even if we release the mouse immediately.
         if state == 1 {
             goxel_iter(&appDelegate().inputs)
+            appDelegate().clearMousePressed()
         }
     }
     
@@ -85,10 +123,10 @@ class GoxNSOpenGLView: NSOpenGLView, NSWindowDelegate {
     override func mouseMoved(with event: NSEvent)        { mouseEvent(0, 0, event) }
     override func rightMouseDown(with event: NSEvent)    { mouseEvent(2, 1, event) }
     override func rightMouseUp(with event: NSEvent)      { mouseEvent(2, 0, event) }
-    override func rightMouseDragged(with event: NSEvent) { mouseEvent(2, 1, event) }
-    override func otherMouseDown(with event: NSEvent)    { mouseEvent(1, 1, event) }
-    override func otherMouseUp(with event: NSEvent)      { mouseEvent(1, 0, event) }
-    override func otherMouseDragged(with event: NSEvent) { mouseEvent(1, 1, event) }
+    override func rightMouseDragged(with event: NSEvent) { mouseEvent(2, 2, event) }
+    override func otherMouseDown(with event: NSEvent)    { mouseEvent(mouseButtonID(event), 1, event) }
+    override func otherMouseUp(with event: NSEvent)      { mouseEvent(mouseButtonID(event), 0, event) }
+    override func otherMouseDragged(with event: NSEvent) { mouseEvent(mouseButtonID(event), 2, event) }
 
     override func scrollWheel(with event: NSEvent) {
         var delta = Float(event.scrollingDeltaY)
@@ -113,7 +151,7 @@ class GoxNSOpenGLView: NSOpenGLView, NSWindowDelegate {
             case UInt16(kVK_ANSI_D): appDelegate().inputs.keys.68 = true
             case UInt16(kVK_ANSI_E): appDelegate().inputs.keys.69 = true
             case UInt16(kVK_ANSI_F): appDelegate().inputs.keys.70 = true
-            case UInt16(kVK_ANSI_G): appDelegate().inputs.keys.72 = true
+            case UInt16(kVK_ANSI_G): appDelegate().inputs.keys.71 = true
             case UInt16(kVK_ANSI_H): appDelegate().inputs.keys.72 = true
             case UInt16(kVK_ANSI_I): appDelegate().inputs.keys.73 = true
             case UInt16(kVK_ANSI_J): appDelegate().inputs.keys.74 = true
@@ -159,7 +197,7 @@ class GoxNSOpenGLView: NSOpenGLView, NSWindowDelegate {
             case UInt16(kVK_ANSI_D): appDelegate().inputs.keys.68 = false
             case UInt16(kVK_ANSI_E): appDelegate().inputs.keys.69 = false
             case UInt16(kVK_ANSI_F): appDelegate().inputs.keys.70 = false
-            case UInt16(kVK_ANSI_G): appDelegate().inputs.keys.72 = false
+            case UInt16(kVK_ANSI_G): appDelegate().inputs.keys.71 = false
             case UInt16(kVK_ANSI_H): appDelegate().inputs.keys.72 = false
             case UInt16(kVK_ANSI_I): appDelegate().inputs.keys.73 = false
             case UInt16(kVK_ANSI_J): appDelegate().inputs.keys.74 = false
@@ -266,6 +304,17 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
         return true
     }
+
+    func clearMousePressed() {
+        self.inputs.mouse_pressed.0 = false
+        self.inputs.mouse_pressed.1 = false
+        self.inputs.mouse_pressed.2 = false
+        self.inputs.mouse_pressed.3 = false
+        self.inputs.mouse_pressed.4 = false
+        self.inputs.mouse_pressed.5 = false
+        self.inputs.mouse_pressed.6 = false
+        self.inputs.mouse_pressed.7 = false
+    }
     
     @objc func onTimer(_ sender: Timer!) {
         var r : Int32
@@ -280,6 +329,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         goxel_render(&self.inputs)
         self.inputs.mouse_wheel = 0
         self.inputs.chars.0 = 0
+        clearMousePressed()
         glFlush()
         view.openGLContext?.flushBuffer()
         if r == 1 {

@@ -176,6 +176,7 @@ static void parse_options(int argc, char **argv, args_t *args)
 
 static void loop_function(void *arg)
 {
+    static bool prev_mouse_buttons[INPUT_MOUSE_BUTTON_COUNT];
     int fb_size[2], win_size[2];
     int i;
     double xpos, ypos;
@@ -210,12 +211,19 @@ static void loop_function(void *arg)
     ypos *= (float)g_inputs->window_size[1] / win_size[1];
     vec2_set(g_inputs->touches[0].pos, xpos / g_scale, ypos / g_scale);
 
+    for (i = 0; i < INPUT_MOUSE_BUTTON_COUNT; i++) {
+        g_inputs->mouse_buttons[i] =
+            glfwGetMouseButton(window, i) == GLFW_PRESS;
+        g_inputs->mouse_pressed[i] =
+            g_inputs->mouse_buttons[i] && !prev_mouse_buttons[i];
+        prev_mouse_buttons[i] = g_inputs->mouse_buttons[i];
+    }
     g_inputs->touches[0].down[0] =
-        glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS;
+        g_inputs->mouse_buttons[GLFW_MOUSE_BUTTON_LEFT];
     g_inputs->touches[0].down[1] =
-        glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_MIDDLE) == GLFW_PRESS;
+        g_inputs->mouse_buttons[GLFW_MOUSE_BUTTON_MIDDLE];
     g_inputs->touches[0].down[2] =
-        glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_RIGHT) == GLFW_PRESS;
+        g_inputs->mouse_buttons[GLFW_MOUSE_BUTTON_RIGHT];
 
     goxel_iter(g_inputs);
     goxel_render(g_inputs);

@@ -1097,6 +1097,81 @@ static void render_symmetry_axis(
     }
 }
 
+static void render_xcom_grid_line(
+        renderer_t *rend, float x1, float y1, float z1,
+        float x2, float y2, float z2, const uint8_t color[4], int effects)
+{
+    float a[3], b[3];
+    vec3_set(a, x1, y1, z1);
+    vec3_set(b, x2, y2, z2);
+    render_line(rend, a, b, color, effects);
+}
+
+static void render_xcom_volume_guides(renderer_t *rend, const float box[4][4])
+{
+    int aabb[2][3];
+    int i, x, y, z;
+    const uint8_t center_color[4] = {255, 255, 255, 190};
+    const uint8_t quarter_color[4] = {255, 255, 255, 105};
+    const uint8_t wall_minor_color[4] = {155, 205, 255, 38};
+    const uint8_t wall_major_color[4] = {185, 225, 255, 62};
+    const int guide_offsets[] = {16, 32, 48};
+    const int wall_step = 8;
+    const float z_bias = 0.03f;
+    int x0, x1, y0, y1, z0, z1;
+    int effects = EFFECT_NO_DEPTH_TEST;
+
+    if (!(goxel.view_effects & EFFECT_GRID)) return;
+    if (box_is_null(box) || !box_is_bbox(box)) return;
+
+    bbox_to_aabb(box, aabb);
+    x0 = aabb[0][0], x1 = aabb[1][0];
+    y0 = aabb[0][1], y1 = aabb[1][1];
+    z0 = aabb[0][2], z1 = aabb[1][2];
+
+    for (i = 0; i < (int)ARRAY_SIZE(guide_offsets); i++) {
+        x = x0 + guide_offsets[i];
+        if (x > x0 && x < x1) {
+            render_xcom_grid_line(rend, x, y0, z0 + z_bias,
+                                  x, y1, z0 + z_bias,
+                                  guide_offsets[i] == 32 ?
+                                      center_color : quarter_color,
+                                  effects | (guide_offsets[i] == 32 ?
+                                      EFFECT_LINE_THICK : 0));
+        }
+        y = y0 + guide_offsets[i];
+        if (y > y0 && y < y1) {
+            render_xcom_grid_line(rend, x0, y, z0 + z_bias,
+                                  x1, y, z0 + z_bias,
+                                  guide_offsets[i] == 32 ?
+                                      center_color : quarter_color,
+                                  effects | (guide_offsets[i] == 32 ?
+                                      EFFECT_LINE_THICK : 0));
+        }
+    }
+
+    for (x = x0 + wall_step; x < x1; x += wall_step) {
+        const uint8_t *color = (x - x0) % 16 == 0 ?
+            wall_major_color : wall_minor_color;
+        render_xcom_grid_line(rend, x, y0, z0, x, y0, z1, color, effects);
+        render_xcom_grid_line(rend, x, y1, z0, x, y1, z1, color, effects);
+    }
+    for (y = y0 + wall_step; y < y1; y += wall_step) {
+        const uint8_t *color = (y - y0) % 16 == 0 ?
+            wall_major_color : wall_minor_color;
+        render_xcom_grid_line(rend, x0, y, z0, x0, y, z1, color, effects);
+        render_xcom_grid_line(rend, x1, y, z0, x1, y, z1, color, effects);
+    }
+    for (z = z0 + wall_step; z < z1; z += wall_step) {
+        const uint8_t *color = (z - z0) % 16 == 0 ?
+            wall_major_color : wall_minor_color;
+        render_xcom_grid_line(rend, x0, y0, z, x1, y0, z, color, effects);
+        render_xcom_grid_line(rend, x0, y1, z, x1, y1, z, color, effects);
+        render_xcom_grid_line(rend, x0, y0, z, x0, y1, z, color, effects);
+        render_xcom_grid_line(rend, x1, y0, z, x1, y1, z, color, effects);
+    }
+}
+
 void goxel_render_view(const float viewport[4], bool render_mode)
 {
     const layer_t *layer;
@@ -1169,6 +1244,7 @@ void goxel_render_view(const float viewport[4], bool render_mode)
     }
     if (goxel.snap_mask & SNAP_PLANE)
         render_grid(rend, goxel.plane, goxel.grid_color, goxel.image->box);
+    render_xcom_volume_guides(rend, goxel.image->box);
 
     if (!box_is_null(goxel.image->box) && !goxel.hide_box) {
         render_box(rend, goxel.image->box, goxel.image_box_color,
