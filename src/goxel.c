@@ -1176,6 +1176,7 @@ static void render_xcom_volume_guides(renderer_t *rend, const float box[4][4])
     const float z_bias = 0.03f;
     int x0, x1, y0, y1, z0, z1;
     int floor_effects = 0;
+    bool floor_visible;
 
     if (!(goxel.view_effects & EFFECT_GRID)) return;
     if (box_is_null(box) || !box_is_bbox(box)) return;
@@ -1187,25 +1188,28 @@ static void render_xcom_volume_guides(renderer_t *rend, const float box[4][4])
     y1 = aabb[1][1];
     z0 = aabb[0][2];
     z1 = aabb[1][2];
+    floor_visible = get_camera()->mat[3][2] >= z0 + z_bias;
 
-    for (i = 0; i < (int)ARRAY_SIZE(guide_offsets); i++) {
-        x = x0 + guide_offsets[i];
-        if (x > x0 && x < x1) {
-            render_xcom_grid_line(rend, x, y0, z0 + z_bias,
-                                  x, y1, z0 + z_bias,
-                                  guide_offsets[i] == 32 ?
-                                      center_color : quarter_color,
-                                  floor_effects | (guide_offsets[i] == 32 ?
-                                      EFFECT_LINE_THICK : 0));
-        }
-        y = y0 + guide_offsets[i];
-        if (y > y0 && y < y1) {
-            render_xcom_grid_line(rend, x0, y, z0 + z_bias,
-                                  x1, y, z0 + z_bias,
-                                  guide_offsets[i] == 32 ?
-                                      center_color : quarter_color,
-                                  floor_effects | (guide_offsets[i] == 32 ?
-                                      EFFECT_LINE_THICK : 0));
+    if (floor_visible) {
+        for (i = 0; i < (int)ARRAY_SIZE(guide_offsets); i++) {
+            x = x0 + guide_offsets[i];
+            if (x > x0 && x < x1) {
+                render_xcom_grid_line(rend, x, y0, z0 + z_bias,
+                                      x, y1, z0 + z_bias,
+                                      guide_offsets[i] == 32 ?
+                                          center_color : quarter_color,
+                                      floor_effects | (guide_offsets[i] == 32 ?
+                                          EFFECT_LINE_THICK : 0));
+            }
+            y = y0 + guide_offsets[i];
+            if (y > y0 && y < y1) {
+                render_xcom_grid_line(rend, x0, y, z0 + z_bias,
+                                      x1, y, z0 + z_bias,
+                                      guide_offsets[i] == 32 ?
+                                          center_color : quarter_color,
+                                      floor_effects | (guide_offsets[i] == 32 ?
+                                          EFFECT_LINE_THICK : 0));
+            }
         }
     }
 
