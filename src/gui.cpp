@@ -86,7 +86,20 @@ static const float LABEL_SIZE = 90;
 #   define GUI_ICON_HEIGHT 32
 #endif
 
+static const float COLOR_SWATCH_SCALE = 2.0f / 3.0f;
 static const ImVec2 ITEM_SPACING = ImVec2(8, 4);
+
+static ImVec2 color_swatch_size(void)
+{
+    const float size = GUI_ICON_HEIGHT * COLOR_SWATCH_SCALE;
+    return ImVec2(size, size);
+}
+
+static ImVec2 color_small_swatch_size(void)
+{
+    const float size = gui_get_item_height() * COLOR_SWATCH_SCALE;
+    return ImVec2(size, size);
+}
 
 #define COL_HEX(x) ImVec4( \
         ((uint8_t)((x >> 24) & 0xff)) / 255.0, \
@@ -1334,10 +1347,13 @@ static bool color_picker(const char *label, uint8_t color[4])
     ImGui::BeginGroup();
     ImGui::Text("Current");
     ImGui::ColorButton("##current", color,
-            ImGuiColorEditFlags_NoPicker, ImVec2(60, 40));
+            ImGuiColorEditFlags_NoPicker,
+            ImVec2(60 * COLOR_SWATCH_SCALE, 40 * COLOR_SWATCH_SCALE));
     ImGui::Text("Original");
     if (ImGui::ColorButton("##previous", backup_color,
-                ImGuiColorEditFlags_NoPicker, ImVec2(60, 40))) {
+                ImGuiColorEditFlags_NoPicker,
+                ImVec2(60 * COLOR_SWATCH_SCALE,
+                       40 * COLOR_SWATCH_SCALE))) {
         memcpy(color, backup_color, sizeof(backup_color));
         ret = true;
     }
@@ -1349,10 +1365,9 @@ static bool color_picker(const char *label, uint8_t color[4])
 bool gui_color(const char *label, uint8_t color[4])
 {
     bool ret = false;
-    ImVec2 size(GUI_ICON_HEIGHT, GUI_ICON_HEIGHT);
 
     ImGui::PushID(label);
-    if (ImGui::ColorButton(label, color, 0, size)) {
+    if (ImGui::ColorButton(label, color, 0, color_swatch_size())) {
         ImGui::OpenPopup("GoxelPicker");
     }
 
@@ -1372,11 +1387,10 @@ bool gui_color_swatch(const char *label, uint8_t color[4],
                       uint8_t active_color[4])
 {
     bool ret = false;
-    ImVec2 size(GUI_ICON_HEIGHT, GUI_ICON_HEIGHT);
     ImDrawList* draw_list = ImGui::GetWindowDrawList();
 
     ImGui::PushID(label);
-    if (ImGui::ColorButton(label, color, 0, size)) {
+    if (ImGui::ColorButton(label, color, 0, color_swatch_size())) {
         vec4_copy(color, active_color);
         on_click();
         ret = true;
@@ -1390,9 +1404,9 @@ bool gui_color_swatch(const char *label, uint8_t color[4],
         ImGui::EndPopup();
     }
     if (active_color && memcmp(color, active_color, 4) == 0) {
-        ImVec2 c1 = ImGui::GetItemRectMin() - ImVec2(2, 2);
-        ImVec2 c2 = ImGui::GetItemRectMax() + ImVec2(2, 2);
-        draw_list->AddRect(c1, c2, IM_COL32(255, 255, 64, 255), 0, 0, 3);
+        ImVec2 c1 = ImGui::GetItemRectMin() - ImVec2(1, 1);
+        ImVec2 c2 = ImGui::GetItemRectMax() + ImVec2(1, 1);
+        draw_list->AddRect(c1, c2, IM_COL32(255, 255, 64, 255), 0, 0, 2);
         draw_list->AddRect(c1, c2, IM_COL32(0, 0, 0, 255), 0, 0, 1);
     }
 
@@ -1403,21 +1417,21 @@ bool gui_color_swatch(const char *label, uint8_t color[4],
 
 bool gui_color_small(const char *label, uint8_t color[4])
 {
-    bool ret;
-    float colorf[4] = {color[0] / 255.f,
-                       color[1] / 255.f,
-                       color[2] / 255.f,
-                       color[3] / 255.f};
+    bool ret = false;
+
     ImGui::PushID(label);
     label_aligned(label, LABEL_SIZE);
-    ret = ImGui::ColorEdit4("", colorf, ImGuiColorEditFlags_NoInputs);
-    ImGui::PopID();
-    if (ret) {
-        color[0] = colorf[0] * 255;
-        color[1] = colorf[1] * 255;
-        color[2] = colorf[2] * 255;
-        color[3] = colorf[3] * 255;
+    if (ImGui::ColorButton("##color", color, 0, color_small_swatch_size())) {
+        ImGui::OpenPopup("GoxelPicker");
     }
+
+    if (ImGui::BeginPopupContextItem("GoxelPicker")) {
+        if (color_picker(label, color)) {
+            ret = true;
+        }
+        ImGui::EndPopup();
+    }
+    ImGui::PopID();
     return ret;
 }
 
@@ -2196,7 +2210,7 @@ bool gui_icons_grid(int nb, const gui_icon_info_t *icons, int *current)
 
     is_colors_grid = (nb > 0 && !icons[0].icon);
 
-    if (is_colors_grid) spacing = 8;
+    if (is_colors_grid) spacing = 8 * COLOR_SWATCH_SCALE;
     ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(spacing, spacing));
 
     max_x = ImGui::GetWindowPos().x + ImGui::GetContentRegionAvail().x;
@@ -2216,7 +2230,7 @@ bool gui_icons_grid(int nb, const gui_icon_info_t *icons, int *current)
             size = GUI_ICON_HEIGHT;
             clicked = gui_selectable_icon(label, &v, icon->icon);
         } else { // Color icon.
-            size = gui_get_item_height();
+            size = gui_get_item_height() * COLOR_SWATCH_SCALE;
             ImGui::PushStyleColor(ImGuiCol_Button, icon->color);
             ImGui::PushStyleColor(ImGuiCol_ButtonHovered, icon->color);
             clicked = ImGui::Button("", ImVec2(size, size));
