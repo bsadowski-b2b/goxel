@@ -1160,7 +1160,7 @@ static void render_xcom_volume_guides(renderer_t *rend, const float box[4][4])
     const int guide_offsets[] = {16, 32, 48};
     const float z_bias = 0.03f;
     int x0, x1, y0, y1, z0, z1;
-    int floor_effects = EFFECT_NO_DEPTH_TEST;
+    int floor_effects = 0;
 
     if (!(goxel.view_effects & EFFECT_GRID)) return;
     if (box_is_null(box) || !box_is_bbox(box)) return;
