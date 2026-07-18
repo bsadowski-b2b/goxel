@@ -57,4 +57,8 @@ if [[ ! -d "$APP_PATH" ]]; then
     exit 1
 fi
 
-open "${OPEN_ARGS[@]}" "$APP_PATH"
+if ((${#OPEN_ARGS[@]})); then
+    open "${OPEN_ARGS[@]}" "$APP_PATH"
+else
+    open "$APP_PATH"
+fi
