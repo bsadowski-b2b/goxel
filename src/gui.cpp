@@ -2085,7 +2085,6 @@ bool gui_reference_image_window(const char *label, texture_t *texture,
                 ImVec2(pan[0], pan[1]);
 
     ImGui::InvisibleButton("##reference_image_canvas", canvas_size,
-                           ImGuiButtonFlags_MouseButtonLeft |
                            ImGuiButtonFlags_MouseButtonMiddle);
     update_activation_state();
     hovered = ImGui::IsItemHovered();
@@ -2111,7 +2110,7 @@ bool gui_reference_image_window(const char *label, texture_t *texture,
                 store_now = true;
             }
         }
-        if (ImGui::IsMouseDoubleClicked(0)) {
+        if (ImGui::IsMouseDoubleClicked(2)) {
             *zoom = 1.0f;
             pan[0] = 0.0f;
             pan[1] = 0.0f;
@@ -2122,8 +2121,7 @@ bool gui_reference_image_window(const char *label, texture_t *texture,
             store_now = true;
         }
     }
-    if ((ImGui::IsMouseDragging(0) || ImGui::IsMouseDragging(2)) &&
-            ImGui::IsItemActive()) {
+    if (ImGui::IsMouseDragging(2) && ImGui::IsItemActive()) {
         pan[0] += io.MouseDelta.x;
         pan[1] += io.MouseDelta.y;
         image_pos = image_pos + io.MouseDelta;
