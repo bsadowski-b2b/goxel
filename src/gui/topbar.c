@@ -181,35 +181,6 @@ static int gui_selection_tool_select(int orientation)
     return 0;
 }
 
-static int gui_selection_mode_select(int orientation)
-{
-    bool v;
-    int i;
-    const struct {
-        int mode;
-        const char *label;
-        int icon;
-    } values[] = {
-        {MODE_REPLACE, _("Set"), ICON_TOOL_SELECTION},
-        {MODE_OVER,    _("Add"), ICON_MODE_ADD},
-        {MODE_SUB,     _("Sub"), ICON_MODE_SUB},
-    };
-
-    gui_group_begin(NULL);
-    if (orientation == GUI_LAYOUT_HORIZONTAL)
-        gui_row_begin(0);
-    for (i = 0; i < ARRAY_SIZE(values); i++) {
-        v = goxel.gui.selection_mode == values[i].mode;
-        if (gui_selectable_icon(values[i].label, &v, values[i].icon)) {
-            goxel.gui.selection_mode = values[i].mode;
-        }
-    }
-    if (orientation == GUI_LAYOUT_HORIZONTAL)
-        gui_row_end();
-    gui_group_end();
-    return 0;
-}
-
 static void gui_xcom_swatches(const char *id_prefix, int per_row)
 {
     int i, row_count;
@@ -298,7 +269,6 @@ void gui_selection_bar(int orientation)
                                &goxel.gui.selectbar_folded);
             if (!goxel.gui.selectbar_folded) {
                 gui_selection_tool_select(orientation);
-                gui_selection_mode_select(orientation);
             }
         } gui_row_end();
     } else {
@@ -306,7 +276,6 @@ void gui_selection_bar(int orientation)
                            &goxel.gui.selectbar_folded);
         if (!goxel.gui.selectbar_folded) {
             gui_selection_tool_select(orientation);
-            gui_selection_mode_select(orientation);
         }
     }
     gui_toolbar_end();

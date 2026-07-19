@@ -1477,10 +1477,17 @@ bool gui_color_swatch(const char *label, uint8_t color[4],
         ImGui::EndPopup();
     }
     if (active_color && memcmp(color, active_color, 4) == 0) {
-        ImVec2 c1 = ImGui::GetItemRectMin() - ImVec2(1, 1);
-        ImVec2 c2 = ImGui::GetItemRectMax() + ImVec2(1, 1);
-        draw_list->AddRect(c1, c2, IM_COL32(64, 220, 255, 255), 0, 0, 2);
-        draw_list->AddRect(c1, c2, IM_COL32(0, 0, 0, 255), 0, 0, 1);
+        ImVec2 p1 = ImGui::GetItemRectMin();
+        ImVec2 p2 = ImGui::GetItemRectMax();
+        const ImU32 active = IM_COL32(64, 220, 255, 255);
+        const ImU32 inner = IM_COL32(255, 255, 255, 230);
+        draw_list->AddRect(p1 - ImVec2(1, 1), p2 + ImVec2(1, 1),
+                           active, 0, 0, 3.0f);
+        draw_list->AddRect(p1 + ImVec2(2, 2), p2 - ImVec2(2, 2),
+                           inner, 0, 0, 1.0f);
+        draw_list->AddRectFilled(ImVec2(p1.x + 4, p2.y - 5),
+                                 ImVec2(p2.x - 4, p2.y - 2),
+                                 active, 1.0f);
     }
 
     ImGui::PopID();
