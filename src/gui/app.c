@@ -158,6 +158,13 @@ void gui_reset_toolbar_layout(void)
     goxel.gui.leftbar_orientation = GUI_LAYOUT_VERTICAL;
 }
 
+void gui_reset_reference_image_layout(void)
+{
+    goxel.gui.reference_image_pos[0] = 0.0f;
+    goxel.gui.reference_image_pos[1] = 0.0f;
+    goxel.gui.reference_image_pos_set = false;
+}
+
 static void set_default_topbar_pos(float y)
 {
     if (goxel.gui.topbar_pos_set) return;

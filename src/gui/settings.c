@@ -215,6 +215,10 @@ int gui_settings_popup(void *data)
                     goxel.gui.reference_image_load_failed = false;
                 settings_save();
             }
+            if (gui_button("Reset Reference Image Position", 1.0, 0)) {
+                gui_reset_reference_image_layout();
+                settings_save();
+            }
             if (gui_button("Clear Reference Image", 1.0, 0)) {
                 goxel_reference_image_clear();
                 settings_save();

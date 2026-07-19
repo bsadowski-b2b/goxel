@@ -2007,7 +2007,7 @@ bool gui_tab(const char *label, int icon, bool *v)
     return _selectable(label, v, NULL, 0, icon);
 }
 
-bool gui_toolbar_handle(const char *tooltip)
+bool gui_toolbar_handle(const char *tooltip, bool *folded)
 {
     bool ret = false;
     bool active;
@@ -2018,6 +2018,9 @@ bool gui_toolbar_handle(const char *tooltip)
     ImVec2 p1, p2, delta;
     ImU32 bg_col;
     ImU32 line_col;
+    ImU32 arrow_col;
+    ImVec2 center;
+    ImVec2 points[3];
 
     ImGui::PushID(tooltip ? tooltip : "toolbar_handle");
     ImGui::InvisibleButton("##toolbar_handle", ImVec2(size, size));
@@ -2025,6 +2028,11 @@ bool gui_toolbar_handle(const char *tooltip)
 
     hovered = ImGui::IsItemHovered();
     active = ImGui::IsItemActive();
+    if (hovered && folded && ImGui::IsMouseDoubleClicked(0)) {
+        *folded = !*folded;
+        settings_save();
+        ret = true;
+    }
     if (active && ImGui::IsMouseDragging(0)) {
         delta = ImGui::GetIO().MouseDelta;
         if (delta.x || delta.y) {
@@ -2034,53 +2042,12 @@ bool gui_toolbar_handle(const char *tooltip)
     }
     if (hovered || active) {
         ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeAll);
-        if (tooltip) gui_tooltip(tooltip);
-    }
-
-    p1 = ImGui::GetItemRectMin();
-    p2 = ImGui::GetItemRectMax();
-    bg_col = active ? IM_COL32(58, 58, 58, 255) :
-             hovered ? IM_COL32(48, 48, 48, 255) :
-                       IM_COL32(38, 38, 38, 255);
-    line_col = IM_COL32(150, 150, 150, 255);
-    draw_list->AddRectFilled(p1, p2, bg_col, style.FrameRounding);
-    for (int i = 0; i < 3; i++) {
-        float x = p1.x + size * 0.38f + i * 4.0f;
-        draw_list->AddLine(ImVec2(x, p1.y + size * 0.28f),
-                           ImVec2(x, p2.y - size * 0.28f),
-                           line_col, 1.5f);
-    }
-
-    ImGui::PopID();
-    if (gui->is_row) ImGui::SameLine();
-    return ret;
-}
-
-static bool gui_toolbar_fold_button(bool *folded)
-{
-    bool ret = false;
-    bool active;
-    bool hovered;
-    float size = GUI_ICON_HEIGHT;
-    ImDrawList *draw_list = ImGui::GetWindowDrawList();
-    const ImGuiStyle& style = ImGui::GetStyle();
-    ImVec2 p1, p2, center;
-    ImU32 bg_col, arrow_col;
-    ImVec2 points[3];
-
-    if (!folded) return false;
-    ImGui::PushID("toolbar_fold");
-    if (ImGui::InvisibleButton("##toolbar_fold", ImVec2(size, size))) {
-        *folded = !*folded;
-        settings_save();
-        ret = true;
-    }
-    update_activation_state();
-
-    hovered = ImGui::IsItemHovered();
-    active = ImGui::IsItemActive();
-    if (hovered) {
-        gui_tooltip(*folded ? "Unfold toolbar" : "Fold toolbar");
+        if (folded)
+            gui_tooltip(*folded ?
+                        "Drag toolbar. Double-click to unfold." :
+                        "Drag toolbar. Double-click to fold.");
+        else if (tooltip)
+            gui_tooltip(tooltip);
     }
 
     p1 = ImGui::GetItemRectMin();
@@ -2089,31 +2056,37 @@ static bool gui_toolbar_fold_button(bool *folded)
     bg_col = active ? IM_COL32(58, 58, 58, 255) :
              hovered ? IM_COL32(48, 48, 48, 255) :
                        IM_COL32(38, 38, 38, 255);
+    line_col = IM_COL32(150, 150, 150, 255);
     arrow_col = IM_COL32(178, 178, 178, 255);
     draw_list->AddRectFilled(p1, p2, bg_col, style.FrameRounding);
-    if (*folded) {
-        points[0] = ImVec2(center.x - 3.0f, center.y - 7.0f);
-        points[1] = ImVec2(center.x - 3.0f, center.y + 7.0f);
-        points[2] = ImVec2(center.x + 5.0f, center.y);
-    } else {
-        points[0] = ImVec2(center.x + 4.0f, center.y - 7.0f);
-        points[1] = ImVec2(center.x + 4.0f, center.y + 7.0f);
-        points[2] = ImVec2(center.x - 5.0f, center.y);
+    for (int i = 0; i < 3; i++) {
+        float x = p1.x + size * 0.30f + i * 3.6f;
+        draw_list->AddLine(ImVec2(x, p1.y + size * 0.28f),
+                           ImVec2(x, p2.y - size * 0.28f),
+                           line_col, 1.5f);
     }
-    draw_list->AddTriangleFilled(points[0], points[1], points[2], arrow_col);
+    if (folded) {
+        if (*folded) {
+            points[0] = ImVec2(p2.x - 10.0f, center.y - 5.5f);
+            points[1] = ImVec2(p2.x - 10.0f, center.y + 5.5f);
+            points[2] = ImVec2(p2.x - 4.0f, center.y);
+        } else {
+            points[0] = ImVec2(p2.x - 5.0f, center.y - 5.5f);
+            points[1] = ImVec2(p2.x - 5.0f, center.y + 5.5f);
+            points[2] = ImVec2(p2.x - 11.0f, center.y);
+        }
+        draw_list->AddTriangleFilled(points[0], points[1], points[2],
+                                     arrow_col);
+    }
+
     ImGui::PopID();
+    if (gui->is_row) ImGui::SameLine();
     return ret;
 }
 
 bool gui_toolbar_chrome(const char *tooltip, bool *folded)
 {
-    bool ret;
-
-    ret = gui_toolbar_handle(tooltip);
-    if (!gui->is_row) ImGui::SameLine();
-    ret |= gui_toolbar_fold_button(folded);
-    if (gui->is_row && folded && !*folded) ImGui::SameLine();
-    return ret;
+    return gui_toolbar_handle(tooltip, folded);
 }
 
 static void draw_resize_corners(const ImVec2& pos, const ImVec2& size,
@@ -2164,6 +2137,16 @@ static bool utility_window_hovered(void)
     return ImGui::IsWindowHovered(
             ImGuiHoveredFlags_RootAndChildWindows |
             ImGuiHoveredFlags_AllowWhenBlockedByActiveItem);
+}
+
+static ImVec2 clamp_utility_window_pos(ImVec2 pos, float title_height)
+{
+    ImGuiIO& io = ImGui::GetIO();
+    float min_title_h = max(title_height, 24.0f);
+
+    pos.x = clamp(pos.x, 0.0f, max(0.0f, io.DisplaySize.x - 80.0f));
+    pos.y = clamp(pos.y, 0.0f, max(0.0f, io.DisplaySize.y - min_title_h));
+    return pos;
 }
 
 static bool reference_image_titlebar_alpha_slider(const char *label,
@@ -2260,6 +2243,7 @@ bool gui_reference_image_window(const char *label, texture_t *texture,
     ImVec2 default_size;
     ImVec2 win_pos;
     ImVec2 win_size;
+    ImVec2 clamped_pos;
     ImVec2 canvas_pos;
     ImVec2 canvas_size;
     ImVec2 image_size;
@@ -2268,6 +2252,7 @@ bool gui_reference_image_window(const char *label, texture_t *texture,
     ImVec2 uv1;
     ImDrawList *draw_list;
     ImGuiIO& io = ImGui::GetIO();
+    ImGuiCond pos_cond;
     ImGuiWindowFlags flags = ImGuiWindowFlags_NoCollapse;
 
     if (!visible || !*visible || !texture)
@@ -2294,7 +2279,12 @@ bool gui_reference_image_window(const char *label, texture_t *texture,
     size[1] = max(size[1], 140.0f);
     *zoom = clamp(*zoom <= 0.0f ? 1.0f : *zoom, 0.1f, 32.0f);
 
-    ImGui::SetNextWindowPos(ImVec2(pos[0], pos[1]), ImGuiCond_Appearing);
+    clamped_pos = clamp_utility_window_pos(ImVec2(pos[0], pos[1]),
+                                           ImGui::GetFrameHeight());
+    pos[0] = clamped_pos.x;
+    pos[1] = clamped_pos.y;
+    pos_cond = *pos_set ? ImGuiCond_Appearing : ImGuiCond_Always;
+    ImGui::SetNextWindowPos(ImVec2(pos[0], pos[1]), pos_cond);
     ImGui::SetNextWindowSize(ImVec2(size[0], size[1]), ImGuiCond_Appearing);
     ImGui::SetNextWindowSizeConstraints(ImVec2(180.0f, 140.0f),
                                         ImVec2(FLT_MAX, FLT_MAX));
@@ -2405,6 +2395,13 @@ bool gui_reference_image_window(const char *label, texture_t *texture,
 
     win_pos = ImGui::GetWindowPos();
     win_size = ImGui::GetWindowSize();
+    clamped_pos = clamp_utility_window_pos(
+            win_pos, ImGui::GetCurrentWindow()->TitleBarHeight);
+    if (clamped_pos.x != win_pos.x || clamped_pos.y != win_pos.y) {
+        ImGui::SetWindowPos(clamped_pos);
+        win_pos = clamped_pos;
+        dirty = true;
+    }
     chrome_visible = utility_window_hovered() || titlebar_alpha_active;
     draw_resize_corners(win_pos, win_size, chrome_visible);
     if (!*pos_set || win_pos.x != pos[0] || win_pos.y != pos[1]) {

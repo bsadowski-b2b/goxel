@@ -75,6 +75,11 @@ void gui_view_panel(void)
             goxel.gui.reference_image_load_failed = false;
         settings_save();
     }
+    if (goxel.gui.reference_image_path[0] &&
+            gui_button(_("Reset Image Reference Position"), 1.0, 0)) {
+        gui_reset_reference_image_layout();
+        settings_save();
+    }
     val = goxel.gui.view_cube_visible;
     if (gui_checkbox(_("View Cube"), &val, NULL)) {
         goxel.gui.view_cube_visible = val;

@@ -71,11 +71,12 @@ void gui_render(const inputs_t *inputs);
 
 void gui_request_panel_width(float width);
 void gui_reset_toolbar_layout(void);
+void gui_reset_reference_image_layout(void);
 void gui_toolbar_begin(void);
 void gui_toolbar_end(void);
 
 bool gui_panel_header(const char *label);
-bool gui_toolbar_handle(const char *tooltip);
+bool gui_toolbar_handle(const char *tooltip, bool *folded);
 bool gui_toolbar_chrome(const char *tooltip, bool *folded);
 bool gui_reference_image_window(const char *label, texture_t *texture,
                                 float pos[2], float size[2],
