@@ -2166,6 +2166,78 @@ static bool utility_window_hovered(void)
             ImGuiHoveredFlags_AllowWhenBlockedByActiveItem);
 }
 
+static bool reference_image_titlebar_alpha_slider(const char *label,
+                                                  float *alpha,
+                                                  bool chrome_visible,
+                                                  bool *active,
+                                                  bool *store_now)
+{
+    ImGuiWindow *window = ImGui::GetCurrentWindow();
+    const ImGuiStyle& style = ImGui::GetStyle();
+    ImRect title_bar = window->TitleBarRect();
+    ImVec2 saved_cursor = ImGui::GetCursorScreenPos();
+    float close_space;
+    float label_right;
+    float slider_right;
+    float slider_w;
+    float slider_h;
+    float percent;
+    bool ret = false;
+
+    if (active)
+        *active = false;
+    if (!chrome_visible || !alpha)
+        return false;
+
+    close_space = style.FramePadding.x;
+    if (window->HasCloseButton)
+        close_space += title_bar.GetHeight() + style.ItemInnerSpacing.x;
+    slider_right = title_bar.Max.x - close_space;
+    label_right = title_bar.Min.x + style.FramePadding.x +
+        ImGui::CalcTextSize(label, NULL, true).x + style.ItemInnerSpacing.x;
+    slider_w = min(110.0f, slider_right - label_right);
+    if (slider_w < 54.0f)
+        return false;
+
+    slider_h = max(10.0f, title_bar.GetHeight() - style.FramePadding.y * 2.0f);
+    percent = clamp(*alpha, 0.05f, 1.0f) * 100.0f;
+
+    ImGui::PushClipRect(title_bar.Min, title_bar.Max, false);
+    ImGui::SetCursorScreenPos(
+            ImVec2(slider_right - slider_w,
+                   title_bar.Min.y + (title_bar.GetHeight() - slider_h) * 0.5f));
+    ImGui::PushItemWidth(slider_w);
+    ImGui::PushStyleVar(ImGuiStyleVar_FramePadding,
+            ImVec2(style.FramePadding.x,
+                   max(0.0f, (slider_h - ImGui::GetTextLineHeight()) * 0.5f)));
+    ImGui::PushStyleColor(ImGuiCol_FrameBg,
+            ImVec4(0.10f, 0.10f, 0.10f, 0.70f));
+    ImGui::PushStyleColor(ImGuiCol_FrameBgHovered,
+            ImVec4(0.14f, 0.14f, 0.14f, 0.88f));
+    ImGui::PushStyleColor(ImGuiCol_FrameBgActive,
+            ImVec4(0.18f, 0.18f, 0.18f, 0.95f));
+    ImGui::PushStyleColor(ImGuiCol_SliderGrab,
+            ImVec4(0.25f, 0.86f, 1.0f, 0.90f));
+    ImGui::PushStyleColor(ImGuiCol_SliderGrabActive,
+            ImVec4(0.25f, 0.86f, 1.0f, 1.0f));
+    if (ImGui::SliderFloat("##reference_title_alpha", &percent,
+                           5.0f, 100.0f, "%.0f%%",
+                           ImGuiSliderFlags_NoInput)) {
+        *alpha = clamp(percent / 100.0f, 0.05f, 1.0f);
+        ret = true;
+    }
+    if (active)
+        *active = ImGui::IsItemActive();
+    if (store_now && ImGui::IsItemDeactivated())
+        *store_now = true;
+    ImGui::PopStyleColor(5);
+    ImGui::PopStyleVar();
+    ImGui::PopItemWidth();
+    ImGui::PopClipRect();
+    ImGui::SetCursorScreenPos(saved_cursor);
+    return ret;
+}
+
 bool gui_reference_image_window(const char *label, texture_t *texture,
                                 float pos[2], float size[2],
                                 bool *pos_set, bool *size_set,
@@ -2179,12 +2251,12 @@ bool gui_reference_image_window(const char *label, texture_t *texture,
     bool store_now = false;
     bool opened;
     bool hovered;
+    bool titlebar_alpha_active = false;
     float bg_alpha;
     float chrome_alpha;
     float title_alpha;
     float fit;
     float old_zoom;
-    float controls_h;
     ImVec2 default_size;
     ImVec2 win_pos;
     ImVec2 win_size;
@@ -2196,7 +2268,6 @@ bool gui_reference_image_window(const char *label, texture_t *texture,
     ImVec2 uv1;
     ImDrawList *draw_list;
     ImGuiIO& io = ImGui::GetIO();
-    const ImGuiStyle& style = ImGui::GetStyle();
     ImGuiWindowFlags flags = ImGuiWindowFlags_NoCollapse;
 
     if (!visible || !*visible || !texture)
@@ -2259,11 +2330,13 @@ bool gui_reference_image_window(const char *label, texture_t *texture,
         return false;
     }
 
+    if (reference_image_titlebar_alpha_slider(label, alpha, chrome_visible,
+                                              &titlebar_alpha_active,
+                                              &store_now))
+        dirty = true;
+
     canvas_pos = ImGui::GetCursorScreenPos();
     canvas_size = ImGui::GetContentRegionAvail();
-    controls_h = ImGui::GetFrameHeight() + style.ItemSpacing.y;
-    if (controls_h > 0.0f && canvas_size.y > controls_h + 1.0f)
-        canvas_size.y -= controls_h;
     canvas_size.x = max(canvas_size.x, 1.0f);
     canvas_size.y = max(canvas_size.y, 1.0f);
     draw_list = ImGui::GetWindowDrawList();
@@ -2330,25 +2403,9 @@ bool gui_reference_image_window(const char *label, texture_t *texture,
                        ImGui::GetColorU32(ImGuiCol_Border));
     draw_list->PopClipRect();
 
-    if (chrome_visible) {
-        bg_alpha = *alpha;
-        ImGui::SetCursorScreenPos(
-                ImVec2(canvas_pos.x,
-                       canvas_pos.y + canvas_size.y + style.ItemSpacing.y));
-        ImGui::PushItemWidth(-1);
-        if (ImGui::SliderFloat("##reference_alpha", &bg_alpha,
-                               0.05f, 1.0f, "Alpha %.0f%%")) {
-            *alpha = clamp(bg_alpha, 0.05f, 1.0f);
-            dirty = true;
-        }
-        if (ImGui::IsItemDeactivated())
-            store_now = true;
-        ImGui::PopItemWidth();
-    }
-
     win_pos = ImGui::GetWindowPos();
     win_size = ImGui::GetWindowSize();
-    chrome_visible = utility_window_hovered();
+    chrome_visible = utility_window_hovered() || titlebar_alpha_active;
     draw_resize_corners(win_pos, win_size, chrome_visible);
     if (!*pos_set || win_pos.x != pos[0] || win_pos.y != pos[1]) {
         pos[0] = win_pos.x;
