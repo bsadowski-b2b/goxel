@@ -25,7 +25,6 @@ typedef struct {
     float   start_rect[4][4];
 
     volume_t *start_mask; // The mask when we started a new selection.
-    int     mode; // MODE_REPLACE | MODE_OVER | MODE_SUB
     int     current_mode; // The mode for the current box only.
 
 } tool_selection_t;
@@ -64,8 +63,7 @@ static void update_mask(tool_selection_t *tool)
 
 static int on_hover(gesture3d_t *gest)
 {
-    tool_selection_t *tool = gest->user;
-    int mode = tool->mode;
+    int mode = goxel.gui.selection_mode;
 
     if (gest->snaped & (SNAP_SELECTION_OUT | SNAP_SELECTION_IN)) {
         return -1;
@@ -102,7 +100,7 @@ static int on_drag(gesture3d_t *gest)
     float rect[4][4];
     float p[3];
     int dir;
-    int mode = tool->mode;
+    int mode = goxel.gui.selection_mode;
     image_t *img = goxel.image;
 
     if (gest->flags & GESTURE3D_FLAG_SHIFT)
@@ -141,7 +139,6 @@ static int on_drag(gesture3d_t *gest)
 static void init(tool_t *tool_)
 {
     tool_selection_t *tool = (void*)tool_;
-    tool->mode = MODE_REPLACE;
     tool->current_mode = MODE_REPLACE;
 }
 
@@ -211,7 +208,7 @@ static int gui(tool_t *tool_)
     float (*box)[4][4] = &goxel.image->selection_box;
     bool deactivated = false;
 
-    tool_gui_mask_mode(&tool->mode);
+    tool_gui_mask_mode(&goxel.gui.selection_mode);
 
     if (box_is_null(*box)) return 0;
 

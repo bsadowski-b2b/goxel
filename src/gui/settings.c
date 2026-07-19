@@ -190,6 +190,12 @@ int gui_settings_popup(void *data)
             goxel.gui.paintbar_orientation = current;
             settings_save();
         }
+        gui_text("Select Toolbar");
+        current = goxel.gui.selectbar_orientation;
+        if (gui_combo("##selectbar_orientation", &current, orientations, 2)) {
+            goxel.gui.selectbar_orientation = current;
+            settings_save();
+        }
         gui_text("Swatches Toolbar");
         current = goxel.gui.swatchesbar_orientation;
         if (gui_combo("##swatchesbar_orientation", &current, orientations, 2)) {
@@ -337,6 +343,10 @@ static int settings_ini_handler(void *user, const char *section,
             goxel.gui.paintbar_orientation =
                 layout_orientation_from_string(value);
         }
+        if (strcmp(name, "selectbar_orientation") == 0) {
+            goxel.gui.selectbar_orientation =
+                layout_orientation_from_string(value);
+        }
         if (strcmp(name, "swatchesbar_orientation") == 0) {
             goxel.gui.swatchesbar_orientation =
                 layout_orientation_from_string(value);
@@ -350,6 +360,9 @@ static int settings_ini_handler(void *user, const char *section,
         }
         if (strcmp(name, "paintbar_folded") == 0) {
             goxel.gui.paintbar_folded = atoi(value) != 0;
+        }
+        if (strcmp(name, "selectbar_folded") == 0) {
+            goxel.gui.selectbar_folded = atoi(value) != 0;
         }
         if (strcmp(name, "swatchesbar_folded") == 0) {
             goxel.gui.swatchesbar_folded = atoi(value) != 0;
@@ -372,6 +385,14 @@ static int settings_ini_handler(void *user, const char *section,
         if (strcmp(name, "paintbar_y") == 0) {
             goxel.gui.paintbar_pos[1] = atof(value);
             goxel.gui.paintbar_pos_set = true;
+        }
+        if (strcmp(name, "selectbar_x") == 0) {
+            goxel.gui.selectbar_pos[0] = atof(value);
+            goxel.gui.selectbar_pos_set = true;
+        }
+        if (strcmp(name, "selectbar_y") == 0) {
+            goxel.gui.selectbar_pos[1] = atof(value);
+            goxel.gui.selectbar_pos_set = true;
         }
         if (strcmp(name, "swatchesbar_x") == 0) {
             goxel.gui.swatchesbar_pos[0] = atof(value);
@@ -506,14 +527,18 @@ void settings_load(void)
     goxel.xcom_gox_repository[0] = '\0';
     goxel.gui.topbar_orientation = GUI_LAYOUT_HORIZONTAL;
     goxel.gui.paintbar_orientation = GUI_LAYOUT_HORIZONTAL;
+    goxel.gui.selectbar_orientation = GUI_LAYOUT_HORIZONTAL;
     goxel.gui.swatchesbar_orientation = GUI_LAYOUT_HORIZONTAL;
     goxel.gui.leftbar_orientation = GUI_LAYOUT_VERTICAL;
+    goxel.gui.selection_mode = MODE_REPLACE;
     goxel.gui.topbar_pos_set = false;
     goxel.gui.paintbar_pos_set = false;
+    goxel.gui.selectbar_pos_set = false;
     goxel.gui.swatchesbar_pos_set = false;
     goxel.gui.leftbar_pos_set = false;
     goxel.gui.topbar_folded = false;
     goxel.gui.paintbar_folded = false;
+    goxel.gui.selectbar_folded = false;
     goxel.gui.swatchesbar_folded = false;
     goxel.gui.leftbar_folded = false;
     texture_delete(goxel.gui.reference_image_texture);
@@ -623,12 +648,15 @@ void settings_save(void)
             layout_orientation_to_string(goxel.gui.topbar_orientation));
     fprintf(file, "paintbar_orientation=%s\n",
             layout_orientation_to_string(goxel.gui.paintbar_orientation));
+    fprintf(file, "selectbar_orientation=%s\n",
+            layout_orientation_to_string(goxel.gui.selectbar_orientation));
     fprintf(file, "swatchesbar_orientation=%s\n",
             layout_orientation_to_string(goxel.gui.swatchesbar_orientation));
     fprintf(file, "leftbar_orientation=%s\n",
             layout_orientation_to_string(goxel.gui.leftbar_orientation));
     fprintf(file, "topbar_folded=%d\n", goxel.gui.topbar_folded);
     fprintf(file, "paintbar_folded=%d\n", goxel.gui.paintbar_folded);
+    fprintf(file, "selectbar_folded=%d\n", goxel.gui.selectbar_folded);
     fprintf(file, "swatchesbar_folded=%d\n", goxel.gui.swatchesbar_folded);
     fprintf(file, "leftbar_folded=%d\n", goxel.gui.leftbar_folded);
     if (goxel.gui.topbar_pos_set) {
@@ -638,6 +666,10 @@ void settings_save(void)
     if (goxel.gui.paintbar_pos_set) {
         fprintf(file, "paintbar_x=%f\n", goxel.gui.paintbar_pos[0]);
         fprintf(file, "paintbar_y=%f\n", goxel.gui.paintbar_pos[1]);
+    }
+    if (goxel.gui.selectbar_pos_set) {
+        fprintf(file, "selectbar_x=%f\n", goxel.gui.selectbar_pos[0]);
+        fprintf(file, "selectbar_y=%f\n", goxel.gui.selectbar_pos[1]);
     }
     if (goxel.gui.swatchesbar_pos_set) {
         fprintf(file, "swatchesbar_x=%f\n", goxel.gui.swatchesbar_pos[0]);

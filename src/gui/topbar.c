@@ -146,6 +146,70 @@ static int gui_mode_select(int orientation)
     return 0;
 }
 
+static int gui_selection_tool_select(int orientation)
+{
+    bool v;
+    char label[64];
+    const action_t *action = NULL;
+    const tool_t *tool = NULL;
+    int i;
+    const struct {
+        int tool;
+        int action;
+        int icon;
+    } values[] = {
+        {TOOL_SELECTION,    ACTION_tool_set_selection,    ICON_TOOL_SELECTION},
+        {TOOL_FUZZY_SELECT, ACTION_tool_set_fuzzy_select, ICON_TOOL_FUZZY_SELECT},
+        {TOOL_RECT_SELECT,  ACTION_tool_set_rect_select,  ICON_TOOL_RECT_SELECTION},
+    };
+
+    gui_group_begin(NULL);
+    if (orientation == GUI_LAYOUT_HORIZONTAL)
+        gui_row_begin(0);
+    for (i = 0; i < ARRAY_SIZE(values); i++) {
+        tool = tool_get(values[i].tool);
+        action = action_get(values[i].action, true);
+        v = goxel.tool->id == values[i].tool;
+        sprintf(label, "%s (%s)", tr(tool->name), action->shortcut);
+        if (gui_selectable_icon(label, &v, values[i].icon)) {
+            action_exec(action);
+        }
+    }
+    if (orientation == GUI_LAYOUT_HORIZONTAL)
+        gui_row_end();
+    gui_group_end();
+    return 0;
+}
+
+static int gui_selection_mode_select(int orientation)
+{
+    bool v;
+    int i;
+    const struct {
+        int mode;
+        const char *label;
+        int icon;
+    } values[] = {
+        {MODE_REPLACE, _("Set"), ICON_TOOL_SELECTION},
+        {MODE_OVER,    _("Add"), ICON_MODE_ADD},
+        {MODE_SUB,     _("Sub"), ICON_MODE_SUB},
+    };
+
+    gui_group_begin(NULL);
+    if (orientation == GUI_LAYOUT_HORIZONTAL)
+        gui_row_begin(0);
+    for (i = 0; i < ARRAY_SIZE(values); i++) {
+        v = goxel.gui.selection_mode == values[i].mode;
+        if (gui_selectable_icon(values[i].label, &v, values[i].icon)) {
+            goxel.gui.selection_mode = values[i].mode;
+        }
+    }
+    if (orientation == GUI_LAYOUT_HORIZONTAL)
+        gui_row_end();
+    gui_group_end();
+    return 0;
+}
+
 static void gui_xcom_swatches(const char *id_prefix, int per_row)
 {
     int i, row_count;
@@ -220,6 +284,29 @@ void gui_paint_bar(int orientation)
         gui_toolbar_chrome("Drag main toolbar", &goxel.gui.paintbar_folded);
         if (!goxel.gui.paintbar_folded) {
             gui_mode_select(orientation);
+        }
+    }
+    gui_toolbar_end();
+}
+
+void gui_selection_bar(int orientation)
+{
+    gui_toolbar_begin();
+    if (orientation == GUI_LAYOUT_HORIZONTAL) {
+        gui_row_begin(0); {
+            gui_toolbar_chrome("Drag selection toolbar",
+                               &goxel.gui.selectbar_folded);
+            if (!goxel.gui.selectbar_folded) {
+                gui_selection_tool_select(orientation);
+                gui_selection_mode_select(orientation);
+            }
+        } gui_row_end();
+    } else {
+        gui_toolbar_chrome("Drag selection toolbar",
+                           &goxel.gui.selectbar_folded);
+        if (!goxel.gui.selectbar_folded) {
+            gui_selection_tool_select(orientation);
+            gui_selection_mode_select(orientation);
         }
     }
     gui_toolbar_end();

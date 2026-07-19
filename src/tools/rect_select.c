@@ -8,7 +8,6 @@
 
 typedef struct {
     tool_t tool;
-    int mode; // MODE_REPLACE, MODE_OVER, MODE_SUB
     float rect[4];
 } tool_rect_select_t;
 
@@ -69,7 +68,7 @@ static int on_drag(gesture3d_t *gest)
     tool_rect_select_t *tool = gest->user;
     float pos[4];
     const camera_t *cam = goxel.image->active_camera;
-    int mode = tool->mode;
+    int mode = goxel.gui.selection_mode;
 
     if (gest->flags & GESTURE3D_FLAG_SHIFT)
         mode = MODE_OVER;
@@ -94,12 +93,6 @@ static int on_drag(gesture3d_t *gest)
     }
 
     return 0;
-}
-
-static void init(tool_t *tool_)
-{
-    tool_rect_select_t *tool = (void*)tool_;
-    tool->mode = MODE_REPLACE;
 }
 
 static int iter(tool_t *tool_, const painter_t *painter,
@@ -136,14 +129,12 @@ static int iter(tool_t *tool_, const painter_t *painter,
 
 static int gui(tool_t *tool_)
 {
-    tool_rect_select_t *tool = (void*)tool_;
-    tool_gui_mask_mode(&tool->mode);
+    tool_gui_mask_mode(&goxel.gui.selection_mode);
     return 0;
 }
 
 TOOL_REGISTER(TOOL_RECT_SELECT, rect_select, tool_rect_select_t,
               .name = N_("Rectangle Select"),
-              .init_fn = init,
               .iter_fn = iter,
               .gui_fn = gui,
               .flags = TOOL_REQUIRE_CAN_EDIT | TOOL_SHOW_MASK,

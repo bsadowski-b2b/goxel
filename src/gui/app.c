@@ -45,6 +45,7 @@ void gui_menu(void);
 void gui_tools_panel(void);
 void gui_top_bar(int orientation);
 void gui_paint_bar(int orientation);
+void gui_selection_bar(int orientation);
 void gui_swatches_bar(int orientation);
 void gui_palette_panel(void);
 void gui_xcom_panel(void);
@@ -146,14 +147,17 @@ void gui_reset_toolbar_layout(void)
 {
     goxel.gui.topbar_pos_set = false;
     goxel.gui.paintbar_pos_set = false;
+    goxel.gui.selectbar_pos_set = false;
     goxel.gui.swatchesbar_pos_set = false;
     goxel.gui.leftbar_pos_set = false;
     goxel.gui.topbar_folded = false;
     goxel.gui.paintbar_folded = false;
+    goxel.gui.selectbar_folded = false;
     goxel.gui.swatchesbar_folded = false;
     goxel.gui.leftbar_folded = false;
     goxel.gui.topbar_orientation = GUI_LAYOUT_HORIZONTAL;
     goxel.gui.paintbar_orientation = GUI_LAYOUT_HORIZONTAL;
+    goxel.gui.selectbar_orientation = GUI_LAYOUT_HORIZONTAL;
     goxel.gui.swatchesbar_orientation = GUI_LAYOUT_HORIZONTAL;
     goxel.gui.leftbar_orientation = GUI_LAYOUT_VERTICAL;
 }
@@ -281,6 +285,7 @@ void gui_app(void)
     const float item_height = gui_get_item_height();
     gui_window_ret_t topbar_ret;
     gui_window_ret_t paintbar_ret;
+    gui_window_ret_t selectbar_ret;
     gui_window_ret_t swatchesbar_ret;
     gui_window_ret_t leftbar_ret;
 
@@ -319,6 +324,17 @@ void gui_app(void)
         settings_save();
 
     y += paintbar_ret.h + spacing;
+    set_default_toolbar_pos(goxel.gui.selectbar_pos,
+                            goxel.gui.selectbar_pos_set, 0, y);
+    gui_window_begin("Select Bar", goxel.gui.selectbar_pos[0],
+                     goxel.gui.selectbar_pos[1], 0, 0, 0);
+    gui_selection_bar(goxel.gui.selectbar_orientation);
+    selectbar_ret = gui_window_end();
+    if (update_toolbar_pos(goxel.gui.selectbar_pos,
+                           &goxel.gui.selectbar_pos_set, selectbar_ret))
+        settings_save();
+
+    y += selectbar_ret.h + spacing;
     set_default_toolbar_pos(goxel.gui.swatchesbar_pos,
                             goxel.gui.swatchesbar_pos_set, 0, y);
     gui_window_begin("Swatches Bar", goxel.gui.swatchesbar_pos[0],
