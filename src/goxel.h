@@ -591,11 +591,13 @@ typedef struct goxel
 
         float view_cube_pos[2];
         float view_cube_size[2];
+        bool view_cube_visible;
         bool view_cube_pos_set;
         bool view_cube_size_set;
 
         float axis_widget_pos[2];
         float axis_widget_size[2];
+        bool axis_widget_visible;
         bool axis_widget_pos_set;
         bool axis_widget_size_set;
     } gui;

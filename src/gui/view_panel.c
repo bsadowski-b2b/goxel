@@ -30,6 +30,7 @@ void gui_view_panel(void)
         {goxel.image_box_color, _("Box")},
     };
     int i;
+    bool val;
 
     gui_text(_("Colors"));
     for (i = 0; i < (int)ARRAY_SIZE(COLORS); i++) {
@@ -64,5 +65,24 @@ void gui_view_panel(void)
     if (goxel.rend.settings.effects & EFFECT_MARCHING_CUBES) {
         gui_checkbox_flag(_("Smooth"), &goxel.rend.settings.effects,
                           EFFECT_MC_SMOOTH, NULL);
+    }
+
+    gui_text(_("Utility Windows"));
+    val = goxel.gui.reference_image_visible;
+    if (gui_checkbox(_("Image Reference"), &val, NULL)) {
+        goxel.gui.reference_image_visible = val;
+        if (val)
+            goxel.gui.reference_image_load_failed = false;
+        settings_save();
+    }
+    val = goxel.gui.view_cube_visible;
+    if (gui_checkbox(_("View Cube"), &val, NULL)) {
+        goxel.gui.view_cube_visible = val;
+        settings_save();
+    }
+    val = goxel.gui.axis_widget_visible;
+    if (gui_checkbox(_("X/Y/Z Axis"), &val, NULL)) {
+        goxel.gui.axis_widget_visible = val;
+        settings_save();
     }
 }

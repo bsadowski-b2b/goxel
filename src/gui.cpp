@@ -2264,8 +2264,7 @@ bool gui_reference_image_window(const char *label, texture_t *texture,
 
     canvas_pos = ImGui::GetCursorScreenPos();
     canvas_size = ImGui::GetContentRegionAvail();
-    controls_h = chrome_visible ? ImGui::GetFrameHeight() +
-                                  style.ItemSpacing.y : 0.0f;
+    controls_h = ImGui::GetFrameHeight() + style.ItemSpacing.y;
     if (controls_h > 0.0f && canvas_size.y > controls_h + 1.0f)
         canvas_size.y -= controls_h;
     canvas_size.x = max(canvas_size.x, 1.0f);

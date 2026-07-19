@@ -448,6 +448,9 @@ static int settings_ini_handler(void *user, const char *section,
         }
     }
     if (strcmp(section, "view_cube") == 0) {
+        if (strcmp(name, "visible") == 0) {
+            goxel.gui.view_cube_visible = atoi(value) != 0;
+        }
         if (strcmp(name, "x") == 0) {
             goxel.gui.view_cube_pos[0] = atof(value);
             goxel.gui.view_cube_pos_set = true;
@@ -466,6 +469,9 @@ static int settings_ini_handler(void *user, const char *section,
         }
     }
     if (strcmp(section, "axis_widget") == 0) {
+        if (strcmp(name, "visible") == 0) {
+            goxel.gui.axis_widget_visible = atoi(value) != 0;
+        }
         if (strcmp(name, "x") == 0) {
             goxel.gui.axis_widget_pos[0] = atof(value);
             goxel.gui.axis_widget_pos_set = true;
@@ -525,12 +531,14 @@ void settings_load(void)
     goxel.gui.view_cube_pos[1] = 0.0f;
     goxel.gui.view_cube_size[0] = 128.0f;
     goxel.gui.view_cube_size[1] = 128.0f;
+    goxel.gui.view_cube_visible = true;
     goxel.gui.view_cube_pos_set = false;
     goxel.gui.view_cube_size_set = false;
     goxel.gui.axis_widget_pos[0] = 0.0f;
     goxel.gui.axis_widget_pos[1] = 0.0f;
     goxel.gui.axis_widget_size[0] = 112.0f;
     goxel.gui.axis_widget_size[1] = 112.0f;
+    goxel.gui.axis_widget_visible = true;
     goxel.gui.axis_widget_pos_set = false;
     goxel.gui.axis_widget_size_set = false;
     ini_parse(path, settings_ini_handler, NULL);
@@ -659,6 +667,7 @@ void settings_save(void)
     fprintf(file, "\n");
 
     fprintf(file, "[view_cube]\n");
+    fprintf(file, "visible=%d\n", goxel.gui.view_cube_visible);
     if (goxel.gui.view_cube_pos_set) {
         fprintf(file, "x=%f\n", goxel.gui.view_cube_pos[0]);
         fprintf(file, "y=%f\n", goxel.gui.view_cube_pos[1]);
@@ -670,6 +679,7 @@ void settings_save(void)
     fprintf(file, "\n");
 
     fprintf(file, "[axis_widget]\n");
+    fprintf(file, "visible=%d\n", goxel.gui.axis_widget_visible);
     if (goxel.gui.axis_widget_pos_set) {
         fprintf(file, "x=%f\n", goxel.gui.axis_widget_pos[0]);
         fprintf(file, "y=%f\n", goxel.gui.axis_widget_pos[1]);

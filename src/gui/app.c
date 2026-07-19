@@ -396,18 +396,20 @@ void gui_app(void)
         (goxel.gui.current_panel == PANEL_RENDER ||
          PANELS[PANEL_RENDER].detached);
 
-    if (gui_view_cube_window("View Cube",
-                             goxel.gui.view_cube_pos,
-                             goxel.gui.view_cube_size,
-                             &goxel.gui.view_cube_pos_set,
-                             &goxel.gui.view_cube_size_set)) {
+    if (goxel.gui.view_cube_visible &&
+            gui_view_cube_window("View Cube",
+                                 goxel.gui.view_cube_pos,
+                                 goxel.gui.view_cube_size,
+                                 &goxel.gui.view_cube_pos_set,
+                                 &goxel.gui.view_cube_size_set)) {
         settings_save();
     }
-    if (gui_axis_widget_window("Axis",
-                               goxel.gui.axis_widget_pos,
-                               goxel.gui.axis_widget_size,
-                               &goxel.gui.axis_widget_pos_set,
-                               &goxel.gui.axis_widget_size_set)) {
+    if (goxel.gui.axis_widget_visible &&
+            gui_axis_widget_window("Axis",
+                                   goxel.gui.axis_widget_pos,
+                                   goxel.gui.axis_widget_size,
+                                   &goxel.gui.axis_widget_pos_set,
+                                   &goxel.gui.axis_widget_size_set)) {
         settings_save();
     }
 }
