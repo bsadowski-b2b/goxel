@@ -1464,14 +1464,17 @@ bool gui_color_swatch(const char *label, uint8_t color[4],
     ImGui::PushID(label);
     align_toolbar_item(size);
     if (ImGui::ColorButton(label, color, 0, size)) {
-        vec4_copy(color, active_color);
+        if (active_color)
+            vec4_copy(color, active_color);
+        ImGui::OpenPopup("GoxelPicker");
         on_click();
         ret = true;
     }
 
     if (ImGui::BeginPopupContextItem("GoxelPicker")) {
         if (color_picker(label, color)) {
-            vec4_copy(color, active_color);
+            if (active_color)
+                vec4_copy(color, active_color);
             ret = true;
         }
         ImGui::EndPopup();
