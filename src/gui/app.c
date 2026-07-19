@@ -44,6 +44,7 @@ void gui_edit_panel(void);
 void gui_menu(void);
 void gui_tools_panel(void);
 void gui_top_bar(int orientation);
+void gui_mytools_bar(int orientation);
 void gui_paint_bar(int orientation);
 void gui_selection_bar(int orientation);
 void gui_swatches_bar(int orientation);
@@ -146,16 +147,19 @@ static void render_left_panel(int orientation)
 void gui_reset_toolbar_layout(void)
 {
     goxel.gui.topbar_pos_set = false;
+    goxel.gui.mytoolsbar_pos_set = false;
     goxel.gui.paintbar_pos_set = false;
     goxel.gui.selectbar_pos_set = false;
     goxel.gui.swatchesbar_pos_set = false;
     goxel.gui.leftbar_pos_set = false;
     goxel.gui.topbar_folded = false;
+    goxel.gui.mytoolsbar_folded = false;
     goxel.gui.paintbar_folded = false;
     goxel.gui.selectbar_folded = false;
     goxel.gui.swatchesbar_folded = false;
     goxel.gui.leftbar_folded = false;
     goxel.gui.topbar_orientation = GUI_LAYOUT_HORIZONTAL;
+    goxel.gui.mytoolsbar_orientation = GUI_LAYOUT_HORIZONTAL;
     goxel.gui.paintbar_orientation = GUI_LAYOUT_HORIZONTAL;
     goxel.gui.selectbar_orientation = GUI_LAYOUT_HORIZONTAL;
     goxel.gui.swatchesbar_orientation = GUI_LAYOUT_HORIZONTAL;
@@ -284,6 +288,7 @@ void gui_app(void)
     filter_layout_state_t filter_layout_state;
     const float item_height = gui_get_item_height();
     gui_window_ret_t topbar_ret;
+    gui_window_ret_t mytoolsbar_ret;
     gui_window_ret_t paintbar_ret;
     gui_window_ret_t selectbar_ret;
     gui_window_ret_t swatchesbar_ret;
@@ -313,6 +318,17 @@ void gui_app(void)
         settings_save();
 
     y += topbar_ret.h + spacing;
+    set_default_toolbar_pos(goxel.gui.mytoolsbar_pos,
+                            goxel.gui.mytoolsbar_pos_set, 0, y);
+    gui_window_begin("MyTools", goxel.gui.mytoolsbar_pos[0],
+                     goxel.gui.mytoolsbar_pos[1], 0, 0, 0);
+    gui_mytools_bar(goxel.gui.mytoolsbar_orientation);
+    mytoolsbar_ret = gui_window_end();
+    if (update_toolbar_pos(goxel.gui.mytoolsbar_pos,
+                           &goxel.gui.mytoolsbar_pos_set, mytoolsbar_ret))
+        settings_save();
+
+    y += mytoolsbar_ret.h + spacing;
     set_default_toolbar_pos(goxel.gui.paintbar_pos,
                             goxel.gui.paintbar_pos_set, 0, y);
     gui_window_begin("Main Bar", goxel.gui.paintbar_pos[0],

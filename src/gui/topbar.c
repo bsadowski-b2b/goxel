@@ -97,7 +97,6 @@ static void gui_topbar_actions(int orientation)
         ACTION_undo,
         ACTION_redo,
         ACTION_layer_clear,
-        ACTION_view_default,
         ACTION_view_toggle_grid_edges,
     };
 
@@ -140,6 +139,41 @@ static int gui_mode_select(int orientation)
             action_exec(action);
         }
     }
+    if (orientation == GUI_LAYOUT_HORIZONTAL)
+        gui_row_end();
+    gui_group_end();
+    return 0;
+}
+
+static int gui_mytools_select(int orientation)
+{
+    bool v;
+    char label[64];
+    const action_t *action = NULL;
+    const tool_t *tool = NULL;
+    int i;
+    const struct {
+        int tool;
+        int action;
+        int icon;
+    } values[] = {
+        {TOOL_SHAPE,      ACTION_tool_set_shape,      ICON_TOOL_SHAPE},
+        {TOOL_PICK_COLOR, ACTION_tool_set_pick_color, ICON_TOOL_PICK},
+    };
+
+    gui_group_begin(NULL);
+    if (orientation == GUI_LAYOUT_HORIZONTAL)
+        gui_row_begin(0);
+    for (i = 0; i < ARRAY_SIZE(values); i++) {
+        tool = tool_get(values[i].tool);
+        action = action_get(values[i].action, true);
+        v = goxel.tool->id == values[i].tool;
+        sprintf(label, "%s (%s)", tr(tool->name), action->shortcut);
+        if (gui_selectable_icon(label, &v, values[i].icon)) {
+            action_exec(action);
+        }
+    }
+    gui_action_button(ACTION_view_default, NULL, 0);
     if (orientation == GUI_LAYOUT_HORIZONTAL)
         gui_row_end();
     gui_group_end();
@@ -236,6 +270,27 @@ void gui_top_bar(int orientation)
         gui_toolbar_chrome("Drag top toolbar", &goxel.gui.topbar_folded);
         if (!goxel.gui.topbar_folded)
             gui_topbar_actions(orientation);
+    }
+    gui_toolbar_end();
+}
+
+void gui_mytools_bar(int orientation)
+{
+    gui_toolbar_begin();
+    if (orientation == GUI_LAYOUT_HORIZONTAL) {
+        gui_row_begin(0); {
+            gui_toolbar_chrome("Drag MyTools toolbar",
+                               &goxel.gui.mytoolsbar_folded);
+            if (!goxel.gui.mytoolsbar_folded) {
+                gui_mytools_select(orientation);
+            }
+        } gui_row_end();
+    } else {
+        gui_toolbar_chrome("Drag MyTools toolbar",
+                           &goxel.gui.mytoolsbar_folded);
+        if (!goxel.gui.mytoolsbar_folded) {
+            gui_mytools_select(orientation);
+        }
     }
     gui_toolbar_end();
 }
