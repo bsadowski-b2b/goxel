@@ -184,7 +184,7 @@ int gui_settings_popup(void *data)
             goxel.gui.topbar_orientation = current;
             settings_save();
         }
-        gui_text("Paint Toolbar");
+        gui_text("Main Toolbar");
         current = goxel.gui.paintbar_orientation;
         if (gui_combo("##paintbar_orientation", &current, orientations, 2)) {
             goxel.gui.paintbar_orientation = current;

@@ -210,18 +210,16 @@ void gui_paint_bar(int orientation)
     gui_toolbar_begin();
     if (orientation == GUI_LAYOUT_HORIZONTAL) {
         gui_row_begin(0); {
-            gui_toolbar_chrome("Drag paint toolbar",
+            gui_toolbar_chrome("Drag main toolbar",
                                &goxel.gui.paintbar_folded);
             if (!goxel.gui.paintbar_folded) {
                 gui_mode_select(orientation);
-                gui_color("##color", goxel.painter.color);
             }
         } gui_row_end();
     } else {
-        gui_toolbar_chrome("Drag paint toolbar", &goxel.gui.paintbar_folded);
+        gui_toolbar_chrome("Drag main toolbar", &goxel.gui.paintbar_folded);
         if (!goxel.gui.paintbar_folded) {
             gui_mode_select(orientation);
-            gui_color("##color", goxel.painter.color);
         }
     }
     gui_toolbar_end();

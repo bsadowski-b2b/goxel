@@ -1940,7 +1940,7 @@ ACTION_REGISTER(ACTION_view_default,
     .flags = ACTION_CAN_EDIT_SHORTCUT,
     .cfunc = a_view_default,
     .default_shortcut = "0",
-    .icon = ICON_XCOM_CAMERA_RESET,
+    .icon = ICON_CAMERA,
 )
 
 static void a_view_toggle_grid_edges(void)
@@ -1956,7 +1956,7 @@ ACTION_REGISTER(ACTION_view_toggle_grid_edges,
     .help = N_("Toggles grid and edges"),
     .flags = ACTION_CAN_EDIT_SHORTCUT,
     .cfunc = a_view_toggle_grid_edges,
-    .icon = ICON_XCOM_VIEW_TOGGLE,
+    .icon = ICON_VIEW,
 )
 
 ACTION_REGISTER(ACTION_view_front,

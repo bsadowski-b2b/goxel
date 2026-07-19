@@ -303,7 +303,7 @@ void gui_app(void)
     y += topbar_ret.h + spacing;
     set_default_toolbar_pos(goxel.gui.paintbar_pos,
                             goxel.gui.paintbar_pos_set, 0, y);
-    gui_window_begin("Paint Bar", goxel.gui.paintbar_pos[0],
+    gui_window_begin("Main Bar", goxel.gui.paintbar_pos[0],
                      goxel.gui.paintbar_pos[1], 0, 0, 0);
     gui_paint_bar(goxel.gui.paintbar_orientation);
     paintbar_ret = gui_window_end();
