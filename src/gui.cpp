@@ -2014,13 +2014,16 @@ bool gui_toolbar_handle(const char *tooltip, bool *folded)
     bool hovered;
     float size = GUI_ICON_HEIGHT;
     ImDrawList* draw_list = ImGui::GetWindowDrawList();
-    const ImGuiStyle& style = ImGui::GetStyle();
     ImVec2 p1, p2, delta;
-    ImU32 bg_col;
     ImU32 line_col;
     ImU32 arrow_col;
     ImVec2 center;
     ImVec2 points[3];
+    float icon_h;
+    float grip_x;
+    float arrow_x;
+    float arrow_w;
+    float arrow_h;
 
     ImGui::PushID(tooltip ? tooltip : "toolbar_handle");
     ImGui::InvisibleButton("##toolbar_handle", ImVec2(size, size));
@@ -2053,27 +2056,36 @@ bool gui_toolbar_handle(const char *tooltip, bool *folded)
     p1 = ImGui::GetItemRectMin();
     p2 = ImGui::GetItemRectMax();
     center = (p1 + p2) * 0.5f;
-    bg_col = active ? IM_COL32(58, 58, 58, 255) :
-             hovered ? IM_COL32(48, 48, 48, 255) :
-                       IM_COL32(38, 38, 38, 255);
-    line_col = IM_COL32(150, 150, 150, 255);
-    arrow_col = IM_COL32(178, 178, 178, 255);
-    draw_list->AddRectFilled(p1, p2, bg_col, style.FrameRounding);
+    line_col = active ? IM_COL32(210, 210, 210, 255) :
+               hovered ? IM_COL32(185, 185, 185, 255) :
+                         IM_COL32(135, 135, 135, 255);
+    arrow_col = active ? IM_COL32(220, 220, 220, 255) :
+                hovered ? IM_COL32(195, 195, 195, 255) :
+                          IM_COL32(155, 155, 155, 255);
+    icon_h = size * 0.46f;
+    grip_x = center.x - size * 0.28f;
     for (int i = 0; i < 3; i++) {
-        float x = p1.x + size * 0.30f + i * 3.6f;
-        draw_list->AddLine(ImVec2(x, p1.y + size * 0.28f),
-                           ImVec2(x, p2.y - size * 0.28f),
+        float x = grip_x + i * 3.0f;
+        draw_list->AddLine(ImVec2(x, center.y - icon_h * 0.5f),
+                           ImVec2(x, center.y + icon_h * 0.5f),
                            line_col, 1.5f);
     }
     if (folded) {
+        arrow_x = center.x + size * 0.22f;
+        arrow_w = size * 0.16f;
+        arrow_h = size * 0.13f;
         if (*folded) {
-            points[0] = ImVec2(p2.x - 10.0f, center.y - 5.5f);
-            points[1] = ImVec2(p2.x - 10.0f, center.y + 5.5f);
-            points[2] = ImVec2(p2.x - 4.0f, center.y);
+            points[0] = ImVec2(arrow_x - arrow_w * 0.5f,
+                               center.y - arrow_h);
+            points[1] = ImVec2(arrow_x - arrow_w * 0.5f,
+                               center.y + arrow_h);
+            points[2] = ImVec2(arrow_x + arrow_w * 0.5f, center.y);
         } else {
-            points[0] = ImVec2(p2.x - 5.0f, center.y - 5.5f);
-            points[1] = ImVec2(p2.x - 5.0f, center.y + 5.5f);
-            points[2] = ImVec2(p2.x - 11.0f, center.y);
+            points[0] = ImVec2(arrow_x + arrow_w * 0.5f,
+                               center.y - arrow_h);
+            points[1] = ImVec2(arrow_x + arrow_w * 0.5f,
+                               center.y + arrow_h);
+            points[2] = ImVec2(arrow_x - arrow_w * 0.5f, center.y);
         }
         draw_list->AddTriangleFilled(points[0], points[1], points[2],
                                      arrow_col);
