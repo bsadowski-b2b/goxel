@@ -2163,9 +2163,7 @@ static bool utility_window_hovered(void)
 {
     return ImGui::IsWindowHovered(
             ImGuiHoveredFlags_RootAndChildWindows |
-            ImGuiHoveredFlags_AllowWhenBlockedByActiveItem) ||
-        ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows) ||
-        ImGui::IsAnyMouseDown();
+            ImGuiHoveredFlags_AllowWhenBlockedByActiveItem);
 }
 
 bool gui_reference_image_window(const char *label, texture_t *texture,
@@ -2181,7 +2179,6 @@ bool gui_reference_image_window(const char *label, texture_t *texture,
     bool store_now = false;
     bool opened;
     bool hovered;
-    bool window_hovered;
     float bg_alpha;
     float chrome_alpha;
     float title_alpha;
@@ -2351,12 +2348,7 @@ bool gui_reference_image_window(const char *label, texture_t *texture,
 
     win_pos = ImGui::GetWindowPos();
     win_size = ImGui::GetWindowSize();
-    window_hovered = ImGui::IsWindowHovered(
-            ImGuiHoveredFlags_RootAndChildWindows |
-            ImGuiHoveredFlags_AllowWhenBlockedByActiveItem);
-    chrome_visible = window_hovered ||
-        ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows) ||
-        ImGui::IsAnyMouseDown();
+    chrome_visible = utility_window_hovered();
     draw_resize_corners(win_pos, win_size, chrome_visible);
     if (!*pos_set || win_pos.x != pos[0] || win_pos.y != pos[1]) {
         pos[0] = win_pos.x;
