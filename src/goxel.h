@@ -37,6 +37,7 @@
 #include "gesture.h"
 #include "gesture3d.h"
 #include "gizmos.h"
+#include "gpu_accel.h"
 #include "gui.h"
 #include "i18n.h"
 #include "image.h"
@@ -518,6 +519,8 @@ typedef struct goxel
     texture_t  *pick_fbo;
     painter_t  painter;
     renderer_t rend;
+    gpu_accel_t *gpu_accel;
+    gpu_accel_mode_t gpu_accel_mode;
 
     tool_t     *tool;
     float      tool_radius;
@@ -539,7 +542,9 @@ typedef struct goxel
     double     fps;         // Average fps.
     bool       quit;        // Set to true to quit the application.
 
-    int        view_effects; // EFFECT_WIREFRAME | EFFECT_GRID | EFFECT_EDGES
+    int        view_effects; // EFFECT_WIREFRAME | EFFECT_GRID | EFFECT_EDGES |
+                             // EFFECT_FRAMES
+    int        frame_spacing;
 
     // Stb array of all the gestures we listen to.
     gesture_t **gestures;

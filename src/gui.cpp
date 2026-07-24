@@ -88,10 +88,26 @@ static const float LABEL_SIZE = 90;
 
 static const float COLOR_SWATCH_SCALE = 2.0f / 3.0f;
 static const ImVec2 ITEM_SPACING = ImVec2(8, 4);
+static const float UI_BASELINE_SCALE = 0.5f;
+
+static float ui_effective_scale(void)
+{
+    return gui_get_scale() * UI_BASELINE_SCALE;
+}
+
+static float gui_icon_height(void)
+{
+    return GUI_ICON_HEIGHT * ui_effective_scale();
+}
+
+static float gui_icon_half_size(void)
+{
+    return gui_icon_height() * 0.5f;
+}
 
 static ImVec2 color_swatch_size(void)
 {
-    const float size = GUI_ICON_HEIGHT * COLOR_SWATCH_SCALE;
+    const float size = gui_icon_height() * COLOR_SWATCH_SCALE;
     return ImVec2(size, size);
 }
 
@@ -229,6 +245,7 @@ typedef struct gui_t {
     } groups[16];
 
     float scale;
+    bool font_rebuild_pending;
 
 } gui_t;
 
@@ -240,10 +257,11 @@ static void align_toolbar_item(ImVec2 size)
 
     if (!gui || !gui->toolbar_depth) return;
     pos = ImGui::GetCursorPos();
-    if (gui->is_row && size.y < GUI_ICON_HEIGHT)
-        pos.y += (GUI_ICON_HEIGHT - size.y) / 2.0f;
-    if (!gui->is_row && size.x < GUI_ICON_HEIGHT)
-        pos.x += (GUI_ICON_HEIGHT - size.x) / 2.0f;
+    const float icon_height = gui_icon_height();
+    if (gui->is_row && size.y < icon_height)
+        pos.y += (icon_height - size.y) / 2.0f;
+    if (!gui->is_row && size.x < icon_height)
+        pos.x += (icon_height - size.x) / 2.0f;
     ImGui::SetCursorPos(pos);
 }
 
@@ -251,7 +269,7 @@ static void gui_create(void)
 {
     if (gui) return;
     gui = (gui_t*)calloc(1, sizeof(*gui));
-    gui->scale = 1;
+    gui->scale = 1.0f;
 }
 
 float gui_get_scale(void)
@@ -262,16 +280,17 @@ float gui_get_scale(void)
 
 void gui_set_scale(float s)
 {
-    if (s < 1 || s > 2) {
+    if (s < 0.5f || s > 2.0f) {
         LOG_W("Invalid scale value: %f", s);
-        s = 1;
+        s = 1.0f;
     }
     gui_create();
     gui->scale = s;
 
     if (gui->initialized) {
-        ImGuiIO& io = ImGui::GetIO();
-        io.Fonts->TexID = 0; // Note: this leaks the texture.
+        // Font atlas mutation is unsafe while the current ImGui frame is
+        // being assembled. Rebuild it at the start of the next frame.
+        gui->font_rebuild_pending = true;
     }
 }
 
@@ -425,7 +444,7 @@ static void add_font(const char *uri, const ImWchar *ranges, bool mergmode)
     const void *data;
     int data_size;
     ImFontConfig conf;
-    float size = 14 * gui->scale * scale;
+    float size = 14 * ui_effective_scale() * scale;
 
     conf.FontDataOwnedByAtlas = false;
     conf.MergeMode = mergmode;
@@ -721,6 +740,15 @@ static void gui_iter(const inputs_t *inputs)
     ImGuiIO& io = ImGui::GetIO();
     ImGuiStyle& style = ImGui::GetStyle();
 
+    if (gui->font_rebuild_pending) {
+        GLuint font_texture = (GLuint)(intptr_t)io.Fonts->TexID;
+        if (font_texture)
+            GL(glDeleteTextures(1, &font_texture));
+        io.Fonts->TexID = 0;
+        load_fonts_texture();
+        gui->font_rebuild_pending = false;
+    }
+
     io.DisplaySize = ImVec2((float)goxel.screen_size[0],
                             (float)goxel.screen_size[1]);
 
@@ -759,14 +787,18 @@ static void gui_iter(const inputs_t *inputs)
     // Setup theme.
     ImGui::StyleColorsDark();
     style.WindowBorderSize = 0;
-    style.WindowPadding = ImVec2(8, 5);
+    style.WindowPadding = ImVec2(8, 5) * ui_effective_scale();
+    style.WindowMinSize = ImVec2(32, 32) * ui_effective_scale();
+    style.ItemSpacing = ITEM_SPACING * ui_effective_scale();
+    style.ItemInnerSpacing = ImVec2(4, 4) * ui_effective_scale();
     style.FrameRounding = 2;
     style.ChildRounding = 4;
     style.WindowRounding = 6;
     style.ChildBorderSize = 0;
     style.SelectableTextAlign = ImVec2(0.5, 0.5);
     style.FramePadding = ImVec2(4,
-            (GUI_ITEM_HEIGHT * gui->scale - ImGui::GetFontSize()) / 2);
+            (GUI_ITEM_HEIGHT * ui_effective_scale() -
+             ImGui::GetFontSize()) / 2);
     style.Colors[ImGuiCol_WindowBg] = COLOR(WINDOW, BACKGROUND, false);
     style.Colors[ImGuiCol_ChildBg] = COLOR(SECTION, BACKGROUND, false);
     style.Colors[ImGuiCol_Header] = ImVec4(0, 0, 0, 0);
@@ -911,6 +943,8 @@ int gui_window_begin(const char *label, float x, float y, float w, float h,
         win_flags |= ImGuiWindowFlags_NoMouseInputs;
     if (dir == 0)
         win_flags |= ImGuiWindowFlags_HorizontalScrollbar;
+    if (w == 0 && h == 0)
+        win_flags |= ImGuiWindowFlags_AlwaysAutoResize;
     ImGui::SetNextWindowPos(ImVec2(x, y),
             (flags & GUI_WINDOW_MOVABLE) ?
             ImGuiCond_Appearing : ImGuiCond_Always);
@@ -993,10 +1027,11 @@ static void label_aligned(const char *label, float size)
     const ImGuiStyle &style = ImGui::GetStyle();
 
     spacing = style.ItemSpacing;
-    spacing.x = ITEM_SPACING.x;
+    spacing.x = ITEM_SPACING.x * ui_effective_scale();
     ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, spacing);
 
-    ImGui::SetCursorPosX(size - text_size - ITEM_SPACING.x);
+    ImGui::SetCursorPosX(
+            size - text_size - ITEM_SPACING.x * ui_effective_scale());
     ImGui::AlignTextToFramePadding();
     ImGui::Text("%s", label);
     ImGui::SameLine();
@@ -1276,7 +1311,7 @@ static bool _selectable(const char *label, bool *v, const char *tooltip,
 
     v = v ? v : &default_v;
     size = (icon != -1) ?
-        ImVec2(GUI_ICON_HEIGHT, GUI_ICON_HEIGHT) :
+        ImVec2(gui_icon_height(), gui_icon_height()) :
         ImVec2(w, gui_get_item_height());
 
     if (!tooltip && icon != -1) {
@@ -1308,10 +1343,11 @@ static bool _selectable(const char *label, bool *v, const char *tooltip,
             center.y += 0.5;
             uv0 = get_icon_uv(icon);
             uv1 = uv0 + ImVec2(1. / 8, 1. / 8);
+            const float icon_half_size = gui_icon_half_size();
             window->DrawList->AddImage(
                     (intptr_t)g_tex_icons->tex,
-                    center - ImVec2(16, 16),
-                    center + ImVec2(16, 16),
+                    center - ImVec2(icon_half_size, icon_half_size),
+                    center + ImVec2(icon_half_size, icon_half_size),
                     uv0, uv1, get_icon_color(icon, *v));
         }
         if (*v) {
@@ -1563,14 +1599,15 @@ bool gui_button(const char *label, float size, int icon)
     ImVec2 button_size;
     ImGuiStyle& style = ImGui::GetStyle();
     ImVec2 center;
-    int w, isize;
+    int w;
+    float icon_half_size;
 
     button_size = ImVec2(size * ImGui::GetContentRegionAvail().x,
                          gui_get_item_height());
     if (size == -1) button_size.x = ImGui::GetContentRegionAvail().x;
     if (size == 0 && (label == NULL || label[0] == '#')) {
-        button_size.x = GUI_ICON_HEIGHT;
-        button_size.y = GUI_ICON_HEIGHT;
+        button_size.x = gui_icon_height();
+        button_size.y = gui_icon_height();
     }
     if (size == 0 && label && label[0] != '#') {
         w = ImGui::CalcTextSize(label, NULL, true).x + style.FramePadding.x * 2;
@@ -1580,7 +1617,10 @@ bool gui_button(const char *label, float size, int icon)
 
     if (gui->item_size) button_size.x = gui->item_size;
 
-    isize = (label && label[0] != '#') ? 12 : 16;
+    icon_half_size = gui->toolbar_depth ?
+        gui_icon_half_size() :
+        ((label && label[0] != '#') ? 12.0f : 16.0f) *
+            ui_effective_scale();
     ImGui::PushStyleColor(ImGuiCol_Button,
             (label && (label[0] != '#')) ?
             COLOR(BUTTON, INNER, false) : COLOR(ICON, INNER, false));
@@ -1594,8 +1634,8 @@ bool gui_button(const char *label, float size, int icon)
         uv0 = ImVec2(((icon - 1) % 8) / 8.0, ((icon - 1) / 8) / 8.0);
         uv1 = ImVec2(uv0.x + 1. / 8, uv0.y + 1. / 8);
         draw_list->AddImage((intptr_t)g_tex_icons->tex,
-                            center - ImVec2(isize, isize),
-                            center + ImVec2(isize, isize),
+                            center - ImVec2(icon_half_size, icon_half_size),
+                            center + ImVec2(icon_half_size, icon_half_size),
                             uv0, uv1, get_icon_color(icon, 0));
     }
     if (ret) {
@@ -1909,9 +1949,9 @@ bool gui_layer_item(int idx, int icons_count, const int *icons,
     if (edit_name != name) {
         ImGui::PushStyleVar(ImGuiStyleVar_ButtonTextAlign, ImVec2(0, 0.5));
         padding = style.FramePadding;
-        padding.x += GUI_ICON_HEIGHT * 0.75 * icons_count;
+        padding.x += gui_icon_height() * 0.75 * icons_count;
         ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, padding);
-        if (ImGui::Button(name, ImVec2(-1, GUI_ICON_HEIGHT))) {
+        if (ImGui::Button(name, ImVec2(-1, gui_icon_height()))) {
             *selected = true;
             ret = true;
         }
@@ -1920,13 +1960,15 @@ bool gui_layer_item(int idx, int icons_count, const int *icons,
         for (i = 0; i < icons_count; i++) {
             icon = icons[i];
             center = ImGui::GetItemRectMin() +
-                ImVec2(GUI_ICON_HEIGHT * 0.75 * (i + 0.5), GUI_ICON_HEIGHT / 2);
+                ImVec2(gui_icon_height() * 0.75 * (i + 0.5),
+                       gui_icon_height() / 2);
             uv0 = ImVec2(((icon - 1) % 8) / 8.0, ((icon - 1) / 8) / 8.0);
             uv1 = ImVec2(uv0.x + 1. / 8, uv0.y + 1. / 8);
+            const float icon_half_size = 12.0f * ui_effective_scale();
             draw_list->AddImage(
                     (intptr_t)g_tex_icons->tex,
-                    center - ImVec2(12, 12),
-                    center + ImVec2(12, 12),
+                    center - ImVec2(icon_half_size, icon_half_size),
+                    center + ImVec2(icon_half_size, icon_half_size),
                     uv0, uv1, get_icon_color(icon, 0));
         }
         ImGui::PopStyleVar();
@@ -1938,7 +1980,7 @@ bool gui_layer_item(int idx, int icons_count, const int *icons,
         if (start_edit) ImGui::SetKeyboardFocusHere();
         ImGui::PushStyleVar(ImGuiStyleVar_FramePadding,
                             ImVec2(style.FramePadding.x,
-                            (GUI_ICON_HEIGHT - font_size) / 2));
+                            (gui_icon_height() - font_size) / 2));
         ImGui::InputText("##name_edit", name, len,
                          ImGuiInputTextFlags_AutoSelectAll);
         if (!start_edit && !ImGui::IsItemActive()) edit_name = NULL;
@@ -2022,7 +2064,7 @@ bool gui_toolbar_handle(const char *tooltip, bool *folded)
     bool ret = false;
     bool active;
     bool hovered;
-    float size = GUI_ICON_HEIGHT;
+    float size = gui_icon_height();
     ImDrawList* draw_list = ImGui::GetWindowDrawList();
     ImVec2 p1, p2, delta;
     ImU32 line_col;
@@ -2426,13 +2468,15 @@ bool gui_reference_image_window(const char *label, texture_t *texture,
     }
     chrome_visible = utility_window_hovered() || titlebar_alpha_active;
     draw_resize_corners(win_pos, win_size, chrome_visible);
-    if (!*pos_set || win_pos.x != pos[0] || win_pos.y != pos[1]) {
+    if (!*pos_set || fabsf(win_pos.x - pos[0]) > 0.5f ||
+            fabsf(win_pos.y - pos[1]) > 0.5f) {
         pos[0] = win_pos.x;
         pos[1] = win_pos.y;
         *pos_set = true;
         dirty = true;
     }
-    if (!*size_set || win_size.x != size[0] || win_size.y != size[1]) {
+    if (!*size_set || fabsf(win_size.x - size[0]) > 0.5f ||
+            fabsf(win_size.y - size[1]) > 0.5f) {
         size[0] = win_size.x;
         size[1] = win_size.y;
         *size_set = true;
@@ -2492,9 +2536,11 @@ bool gui_view_cube_window(const char *label, float pos[2], float size[2],
     if (!*pos_set) {
         pos[0] = max(0.0f, io.DisplaySize.x - size[0] - 16.0f);
         pos[1] = 48.0f;
+        pos[0] = clamp(pos[0], 0.0f,
+                       max(0.0f, io.DisplaySize.x - 64.0f));
+        pos[1] = clamp(pos[1], 0.0f,
+                       max(0.0f, io.DisplaySize.y - 64.0f));
     }
-    pos[0] = clamp(pos[0], 0.0f, max(0.0f, io.DisplaySize.x - 64.0f));
-    pos[1] = clamp(pos[1], 0.0f, max(0.0f, io.DisplaySize.y - 64.0f));
     size[0] = max(size[0], 96.0f);
     size[1] = max(size[1], 96.0f);
 
@@ -2540,13 +2586,15 @@ bool gui_view_cube_window(const char *label, float pos[2], float size[2],
     win_size = ImGui::GetWindowSize();
     chrome_visible = utility_window_hovered();
     draw_resize_corners(win_pos, win_size, chrome_visible);
-    if (!*pos_set || win_pos.x != pos[0] || win_pos.y != pos[1]) {
+    if (!*pos_set || fabsf(win_pos.x - pos[0]) > 0.5f ||
+            fabsf(win_pos.y - pos[1]) > 0.5f) {
         pos[0] = win_pos.x;
         pos[1] = win_pos.y;
         *pos_set = true;
         dirty = true;
     }
-    if (!*size_set || win_size.x != size[0] || win_size.y != size[1]) {
+    if (!*size_set || fabsf(win_size.x - size[0]) > 0.5f ||
+            fabsf(win_size.y - size[1]) > 0.5f) {
         size[0] = win_size.x;
         size[1] = win_size.y;
         *size_set = true;
@@ -2587,9 +2635,11 @@ bool gui_axis_widget_window(const char *label, float pos[2], float size[2],
     if (!*pos_set) {
         pos[0] = 16.0f;
         pos[1] = max(0.0f, io.DisplaySize.y - size[1] - 16.0f);
+        pos[0] = clamp(pos[0], 0.0f,
+                       max(0.0f, io.DisplaySize.x - 64.0f));
+        pos[1] = clamp(pos[1], 0.0f,
+                       max(0.0f, io.DisplaySize.y - 64.0f));
     }
-    pos[0] = clamp(pos[0], 0.0f, max(0.0f, io.DisplaySize.x - 64.0f));
-    pos[1] = clamp(pos[1], 0.0f, max(0.0f, io.DisplaySize.y - 64.0f));
     size[0] = max(size[0], 88.0f);
     size[1] = max(size[1], 88.0f);
 
@@ -2626,13 +2676,15 @@ bool gui_axis_widget_window(const char *label, float pos[2], float size[2],
     win_size = ImGui::GetWindowSize();
     chrome_visible = utility_window_hovered();
     draw_resize_corners(win_pos, win_size, chrome_visible);
-    if (!*pos_set || win_pos.x != pos[0] || win_pos.y != pos[1]) {
+    if (!*pos_set || fabsf(win_pos.x - pos[0]) > 0.5f ||
+            fabsf(win_pos.y - pos[1]) > 0.5f) {
         pos[0] = win_pos.x;
         pos[1] = win_pos.y;
         *pos_set = true;
         dirty = true;
     }
-    if (!*size_set || win_size.x != size[0] || win_size.y != size[1]) {
+    if (!*size_set || fabsf(win_size.x - size[0]) > 0.5f ||
+            fabsf(win_size.y - size[1]) > 0.5f) {
         size[0] = win_size.x;
         size[1] = win_size.y;
         *size_set = true;
@@ -2667,9 +2719,10 @@ static bool panel_header_close_button(void)
                ImGui::GetItemRectSize().y / 2);
     uv0 = get_icon_uv(ICON_CLOSE);
     uv1 = uv0 + ImVec2(1. / 8, 1. / 8);
+    const float icon_half_size = 12.0f * ui_effective_scale();
     draw_list->AddImage((intptr_t)g_tex_icons->tex,
-                            center - ImVec2(12, 12),
-                            center + ImVec2(12, 12),
+                            center - ImVec2(icon_half_size, icon_half_size),
+                            center + ImVec2(icon_half_size, icon_half_size),
                             uv0, uv1, get_icon_color(ICON_CLOSE, 0));
     return ret;
 }
@@ -2739,7 +2792,7 @@ bool gui_icons_grid(int nb, const gui_icon_info_t *icons, int *current)
         }
         v = (i == *current);
         if (!is_colors_grid) {
-            size = GUI_ICON_HEIGHT;
+            size = gui_icon_height();
             clicked = gui_selectable_icon(label, &v, icon->icon);
         } else { // Color icon.
             size = gui_get_item_height() * COLOR_SWATCH_SCALE;

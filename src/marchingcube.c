@@ -656,3 +656,8 @@ static const int8_t MC_TRI_TABLE[256][16] = {
     {0, 3, 8, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1},
     {-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1}
 };
+
+const int8_t *volume_mc_get_tri_table(void)
+{
+    return &MC_TRI_TABLE[0][0];
+}

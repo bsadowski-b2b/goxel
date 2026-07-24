@@ -172,7 +172,7 @@ int gui_settings_popup(void *data)
             settings_save();
         }
         scale = gui_get_scale();
-        if (gui_input_float("Scale", &scale, 0.1, 1.0, 2.0, "%.1f")) {
+        if (gui_input_float("Scale", &scale, 0.1, 0.5, 2.0, "%.1f")) {
             gui_set_scale(scale);
         }
         if (gui_is_item_deactivated()) {
@@ -238,6 +238,26 @@ int gui_settings_popup(void *data)
             }
         }
 
+    } gui_section_end();
+
+    if (gui_section_begin("GPU Acceleration",
+                          GUI_SECTION_COLLAPSABLE_CLOSED)) {
+        const char *gpu_modes[] = { "Off", "Auto", "Validation" };
+        current = goxel.gpu_accel_mode;
+        gui_text("Mode");
+        if (gui_combo("##gpu_acceleration_mode", &current, gpu_modes,
+                      ARRAY_SIZE(gpu_modes))) {
+            goxel.gpu_accel_mode = (gpu_accel_mode_t)current;
+            gpu_accel_destroy(goxel.gpu_accel);
+            goxel.gpu_accel = gpu_accel_create(goxel.gpu_accel_mode);
+            // Force every cached block tile to be rebuilt by the newly
+            // selected backend, otherwise CPU/GPU cache entries can survive
+            // a mode change and make the selection appear ineffective.
+            render_on_low_memory(&goxel.rend);
+            settings_save();
+        }
+        gui_text("Validation checks every changed tile copied to Metal.");
+        gui_text("Rendering remains on the CPU/OpenGL path in Phase 2.");
     } gui_section_end();
 
     if (gui_section_begin("Inputs", GUI_SECTION_COLLAPSABLE_CLOSED)) {
@@ -457,6 +477,39 @@ static int settings_ini_handler(void *user, const char *section,
                      sizeof(goxel.xcom_gox_repository), "%s", value);
         }
     }
+    if (strcmp(section, "gpu_acceleration") == 0) {
+        if (strcmp(name, "mode") == 0) {
+            if (strcasecmp(value, "off") == 0)
+                goxel.gpu_accel_mode = GPU_ACCEL_OFF;
+            else if (strcasecmp(value, "validation") == 0)
+                goxel.gpu_accel_mode = GPU_ACCEL_VALIDATION;
+            else
+                goxel.gpu_accel_mode = GPU_ACCEL_AUTO;
+        }
+    }
+    if (strcmp(section, "view") == 0) {
+        if (strcmp(name, "grid") == 0) {
+            if (atoi(value))
+                goxel.view_effects |= EFFECT_GRID;
+            else
+                goxel.view_effects &= ~EFFECT_GRID;
+        }
+        if (strcmp(name, "edges") == 0) {
+            if (atoi(value))
+                goxel.view_effects |= EFFECT_EDGES;
+            else
+                goxel.view_effects &= ~EFFECT_EDGES;
+        }
+        if (strcmp(name, "frames") == 0) {
+            if (atoi(value))
+                goxel.view_effects |= EFFECT_FRAMES;
+            else
+                goxel.view_effects &= ~EFFECT_FRAMES;
+        }
+        if (strcmp(name, "frame_spacing") == 0) {
+            goxel.frame_spacing = clamp(atoi(value), 1, 64);
+        }
+    }
     if (strcmp(section, "reference") == 0) {
         if (strcmp(name, "visible") == 0) {
             goxel.gui.reference_image_visible = atoi(value) != 0;
@@ -546,6 +599,9 @@ void settings_load(void)
     LOG_I("Read settings file: %s", path);
     arrfree(goxel.keymaps);
     goxel.emulate_three_buttons_mouse = 0;
+    goxel.gpu_accel_mode = GPU_ACCEL_AUTO;
+    goxel.view_effects = 0;
+    goxel.frame_spacing = 8;
     goxel.xcom_gox_repository[0] = '\0';
     goxel.gui.topbar_orientation = GUI_LAYOUT_HORIZONTAL;
     goxel.gui.mytoolsbar_orientation = GUI_LAYOUT_HORIZONTAL;
@@ -715,6 +771,20 @@ void settings_save(void)
 
     fprintf(file, "[xcom]\n");
     fprintf(file, "gox_repository=%s\n", goxel.xcom_gox_repository);
+    fprintf(file, "\n");
+
+    fprintf(file, "[gpu_acceleration]\n");
+    fprintf(file, "mode=%s\n",
+            goxel.gpu_accel_mode == GPU_ACCEL_OFF ? "off" :
+            goxel.gpu_accel_mode == GPU_ACCEL_VALIDATION ?
+                "validation" : "auto");
+    fprintf(file, "\n");
+
+    fprintf(file, "[view]\n");
+    fprintf(file, "grid=%d\n", !!(goxel.view_effects & EFFECT_GRID));
+    fprintf(file, "edges=%d\n", !!(goxel.view_effects & EFFECT_EDGES));
+    fprintf(file, "frames=%d\n", !!(goxel.view_effects & EFFECT_FRAMES));
+    fprintf(file, "frame_spacing=%d\n", goxel.frame_spacing);
     fprintf(file, "\n");
 
     fprintf(file, "[reference]\n");

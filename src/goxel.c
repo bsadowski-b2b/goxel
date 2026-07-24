@@ -196,11 +196,10 @@ static bool goxel_unproject_on_box(
 
 static void update_pick_fbo(const int view_size[2], const volume_t *volume)
 {
-    // TODO: use a cache to avoid calling this twice in the same frame.
-
     renderer_t rend = {.settings = goxel.rend.settings};
     uint8_t clear_color[4] = {0, 0, 0, 0};
     float rect[4] = {0, 0, view_size[0], view_size[1]};
+    double start;
 
     typedef struct {
         uint64_t volume_key;
@@ -234,6 +233,7 @@ static void update_pick_fbo(const int view_size[2], const volume_t *volume)
     };
 
     if (memcmp((void *)&key, (void *)&cache_key, sizeof(key_t)) == 0) {
+        render_perf_record_pick_cache_hit();
         GL(glBindFramebuffer(GL_FRAMEBUFFER, goxel.pick_fbo->framebuffer));
         return;
     }
@@ -245,8 +245,10 @@ static void update_pick_fbo(const int view_size[2], const volume_t *volume)
     rend.settings.shadow = 0;
     rend.fbo = goxel.pick_fbo->framebuffer;
     rend.scale = 1;
+    start = sys_get_time();
     render_volume(&rend, volume, NULL, EFFECT_RENDER_POS);
     render_submit(&rend, rect, clear_color);
+    render_perf_record_pick_render((sys_get_time() - start) * 1000.0);
 }
 
 static void volume_get_tile_pos(const volume_t *volume, int id, int pos[3])
@@ -283,7 +285,10 @@ static bool goxel_unproject_on_volume(
     GL(glViewport(0, 0, goxel.pick_fbo->w, goxel.pick_fbo->h));
     if (x < 0 || x >= view_size[0] ||
         y < 0 || y >= view_size[1]) return false;
+    const double readback_start = sys_get_time();
     GL(glReadPixels(x, y, 1, 1, GL_RGBA, GL_UNSIGNED_BYTE, &pixel));
+    render_perf_record_pick_readback(
+            (sys_get_time() - readback_start) * 1000.0);
     GL(glBindFramebuffer(GL_FRAMEBUFFER, 0));
 
     unpack_pos_data(pixel, voxel_pos, &face, &tile_id);
@@ -566,6 +571,9 @@ void goxel_reset(void)
 
     goxel.pathtracer = (pathtracer_t) {
         .num_samples = 512,
+        .backend = PT_BACKEND_CPU,
+        .resolution_scale = 0.5,
+        .max_steps = 1024,
         .world = {
             .type = PT_WORLD_UNIFORM,
             .energy = 1,
@@ -596,6 +604,8 @@ void goxel_release(void)
 void goxel_create_graphics(void)
 {
     render_init();
+    gpu_accel_destroy(goxel.gpu_accel);
+    goxel.gpu_accel = gpu_accel_create(goxel.gpu_accel_mode);
     goxel.graphics_initialized = true;
 }
 
@@ -606,6 +616,8 @@ void goxel_create_graphics(void)
 void goxel_release_graphics(void)
 {
     reference_image_unload();
+    gpu_accel_destroy(goxel.gpu_accel);
+    goxel.gpu_accel = NULL;
     render_deinit();
     model3d_release_graphics();
     gui_release_graphics();
@@ -975,6 +987,8 @@ void goxel_render(const inputs_t *inputs)
 {
     uint8_t color[4];
 
+    gpu_accel_sync_volume(goxel.gpu_accel,
+                          goxel_get_render_volume(goxel.image));
     theme_get_color(THEME_GROUP_BASE, THEME_COLOR_BACKGROUND, false, color);
     GL(glViewport(0, 0, goxel.screen_size[0] * goxel.screen_scale,
                         goxel.screen_size[1] * goxel.screen_scale));
@@ -1016,13 +1030,24 @@ static void render_pathtrace_view(const float viewport[4])
 {
     pathtracer_t *pt = &goxel.pathtracer;
     float a, mat[4][4];
+    float resolution_scale =
+        pt->backend == PT_BACKEND_METAL_PREVIEW ?
+            clamp(pt->resolution_scale, 0.25f, 1.0f) : 1.0f;
+    int target_w = max(1, (int)(goxel.image->export_width *
+                                resolution_scale));
+    int target_h = max(1, (int)(goxel.image->export_height *
+                                resolution_scale));
+    if (pt->backend == PT_BACKEND_METAL_PREVIEW) {
+        target_w = min(target_w, 2048);
+        target_h = min(target_h, 2048);
+    }
     // Recreate the buffer if needed.
     if (    !pt->buf ||
-            pt->w != goxel.image->export_width ||
-            pt->h != goxel.image->export_height) {
+            pt->w != target_w ||
+            pt->h != target_h) {
         free(pt->buf);
-        pt->w = goxel.image->export_width;
-        pt->h = goxel.image->export_height;
+        pt->w = target_w;
+        pt->h = target_h;
         pt->buf = calloc(pt->w * pt->h, 4);
         texture_delete(pt->texture);
         pt->texture = texture_new_surface(pt->w, pt->h, 0);
@@ -1094,28 +1119,46 @@ static void render_xcom_grid_line(
     render_line(rend, a, b, color, effects);
 }
 
-static void render_xcom_wall_grid(
+static void render_canvas_face_grid(
         renderer_t *rend, const float box[4][4], int face,
         int x0, int x1, int y0, int y1, int z0, int z1,
-        const uint8_t minor_color[4], const uint8_t major_color[4])
+        int step, int major_step, const uint8_t minor_color[4],
+        const uint8_t major_color[4], int effects)
 {
     int x, y, z;
-    const int wall_step = 8;
-    const int effects = 0;
     const uint8_t *color;
 
     if (!is_box_face_visible(box, face)) return;
+    step = max(step, 1);
+    major_step = max(major_step, step);
 
     switch (face) {
     case 0:
     case 1: {
         y = face == 0 ? y0 : y1;
-        for (x = x0 + wall_step; x < x1; x += wall_step) {
-            color = (x - x0) % 16 == 0 ? major_color : minor_color;
+        for (x = x0 + step; x < x1; x += step) {
+            color = (x - x0) % major_step == 0 ?
+                        major_color : minor_color;
             render_xcom_grid_line(rend, x, y, z0, x, y, z1, color, effects);
         }
-        for (z = z0 + wall_step; z < z1; z += wall_step) {
-            color = (z - z0) % 16 == 0 ? major_color : minor_color;
+        for (z = z0 + step; z < z1; z += step) {
+            color = (z - z0) % major_step == 0 ?
+                        major_color : minor_color;
+            render_xcom_grid_line(rend, x0, y, z, x1, y, z, color, effects);
+        }
+        break;
+    }
+    case 2:
+    case 3: {
+        z = face == 2 ? z0 : z1;
+        for (x = x0 + step; x < x1; x += step) {
+            color = (x - x0) % major_step == 0 ?
+                        major_color : minor_color;
+            render_xcom_grid_line(rend, x, y0, z, x, y1, z, color, effects);
+        }
+        for (y = y0 + step; y < y1; y += step) {
+            color = (y - y0) % major_step == 0 ?
+                        major_color : minor_color;
             render_xcom_grid_line(rend, x0, y, z, x1, y, z, color, effects);
         }
         break;
@@ -1123,12 +1166,14 @@ static void render_xcom_wall_grid(
     case 4:
     case 5: {
         x = face == 4 ? x1 : x0;
-        for (y = y0 + wall_step; y < y1; y += wall_step) {
-            color = (y - y0) % 16 == 0 ? major_color : minor_color;
+        for (y = y0 + step; y < y1; y += step) {
+            color = (y - y0) % major_step == 0 ?
+                        major_color : minor_color;
             render_xcom_grid_line(rend, x, y, z0, x, y, z1, color, effects);
         }
-        for (z = z0 + wall_step; z < z1; z += wall_step) {
-            color = (z - z0) % 16 == 0 ? major_color : minor_color;
+        for (z = z0 + step; z < z1; z += step) {
+            color = (z - z0) % major_step == 0 ?
+                        major_color : minor_color;
             render_xcom_grid_line(rend, x, y0, z, x, y1, z, color, effects);
         }
         break;
@@ -1136,21 +1181,19 @@ static void render_xcom_wall_grid(
     }
 }
 
-static void render_xcom_volume_guides(renderer_t *rend, const float box[4][4])
+static void render_canvas_volume_guides(
+        renderer_t *rend, const float box[4][4])
 {
     int aabb[2][3];
-    int i, x, y;
-    const uint8_t center_color[4] = {255, 255, 255, 190};
-    const uint8_t quarter_color[4] = {255, 255, 255, 105};
-    const uint8_t wall_minor_color[4] = {155, 205, 255, 38};
-    const uint8_t wall_major_color[4] = {185, 225, 255, 62};
-    const int guide_offsets[] = {16, 32, 48};
-    const float z_bias = 0.03f;
+    int face;
+    const uint8_t grid_minor_color[4] = {155, 205, 255, 18};
+    const uint8_t grid_major_color[4] = {175, 215, 255, 38};
+    const uint8_t frame_minor_color[4] = {205, 235, 255, 95};
+    const uint8_t frame_major_color[4] = {235, 250, 255, 155};
+    const uint8_t frame_box_color[4] = {220, 242, 255, 180};
     int x0, x1, y0, y1, z0, z1;
-    int floor_effects = 0;
-    bool floor_visible;
 
-    if (!(goxel.view_effects & EFFECT_GRID)) return;
+    if (!(goxel.view_effects & (EFFECT_GRID | EFFECT_FRAMES))) return;
     if (box_is_null(box) || !box_is_bbox(box)) return;
 
     bbox_to_aabb(box, aabb);
@@ -1160,39 +1203,25 @@ static void render_xcom_volume_guides(renderer_t *rend, const float box[4][4])
     y1 = aabb[1][1];
     z0 = aabb[0][2];
     z1 = aabb[1][2];
-    floor_visible = get_camera()->mat[3][2] >= z0 + z_bias;
 
-    if (floor_visible) {
-        for (i = 0; i < (int)ARRAY_SIZE(guide_offsets); i++) {
-            x = x0 + guide_offsets[i];
-            if (x > x0 && x < x1) {
-                render_xcom_grid_line(rend, x, y0, z0 + z_bias,
-                                      x, y1, z0 + z_bias,
-                                      guide_offsets[i] == 32 ?
-                                          center_color : quarter_color,
-                                      floor_effects | (guide_offsets[i] == 32 ?
-                                          EFFECT_LINE_THICK : 0));
-            }
-            y = y0 + guide_offsets[i];
-            if (y > y0 && y < y1) {
-                render_xcom_grid_line(rend, x0, y, z0 + z_bias,
-                                      x1, y, z0 + z_bias,
-                                      guide_offsets[i] == 32 ?
-                                          center_color : quarter_color,
-                                      floor_effects | (guide_offsets[i] == 32 ?
-                                          EFFECT_LINE_THICK : 0));
-            }
+    if (goxel.view_effects & EFFECT_GRID) {
+        for (face = 0; face < 6; face++) {
+            render_canvas_face_grid(
+                rend, box, face, x0, x1, y0, y1, z0, z1, 1, 8,
+                grid_minor_color, grid_major_color, 0);
         }
     }
 
-    render_xcom_wall_grid(rend, box, 0, x0, x1, y0, y1, z0, z1,
-                          wall_minor_color, wall_major_color);
-    render_xcom_wall_grid(rend, box, 1, x0, x1, y0, y1, z0, z1,
-                          wall_minor_color, wall_major_color);
-    render_xcom_wall_grid(rend, box, 4, x0, x1, y0, y1, z0, z1,
-                          wall_minor_color, wall_major_color);
-    render_xcom_wall_grid(rend, box, 5, x0, x1, y0, y1, z0, z1,
-                          wall_minor_color, wall_major_color);
+    if (goxel.view_effects & EFFECT_FRAMES) {
+        const int spacing = max(goxel.frame_spacing, 1);
+        for (face = 0; face < 6; face++) {
+            render_canvas_face_grid(
+                rend, box, face, x0, x1, y0, y1, z0, z1,
+                spacing, spacing * 4, frame_minor_color, frame_major_color,
+                EFFECT_LINE_THICK);
+        }
+        render_box(rend, box, frame_box_color, EFFECT_WIREFRAME);
+    }
 }
 
 void goxel_render_view(const float viewport[4], bool render_mode)
@@ -1215,6 +1244,8 @@ void goxel_render_view(const float viewport[4], bool render_mode)
 
     effects |= goxel.view_effects;
 
+    if (goxel.tool_volume)
+        render_perf_record_tool_preview();
     for (layer = goxel_get_render_layers(true); layer; layer = layer->next) {
         if (layer->visible && layer->volume)
             render_volume(rend, layer->volume, layer->material, effects);
@@ -1267,7 +1298,7 @@ void goxel_render_view(const float viewport[4], bool render_mode)
     }
     if (goxel.snap_mask & SNAP_PLANE)
         render_grid(rend, goxel.plane, goxel.grid_color, goxel.image->box);
-    render_xcom_volume_guides(rend, goxel.image->box);
+    render_canvas_volume_guides(rend, goxel.image->box);
 
     if (!box_is_null(goxel.image->box) && !goxel.hide_box) {
         render_box(rend, goxel.image->box, goxel.image_box_color,

@@ -23,6 +23,7 @@ void gui_render_panel(void)
     int i;
     int maxsize;
     char buf[256];
+    float resolution_percent;
     pathtracer_t *pt = &goxel.pathtracer;
     material_t *material;
 
@@ -45,11 +46,33 @@ void gui_render_panel(void)
     gui_enabled_end();
     gui_group_end();
 
+    gui_text(_("Renderer"));
+    gui_group_begin(NULL);
+    gui_selectable_toggle(_("CPU (Yocto)"), &pt->backend,
+                          PT_BACKEND_CPU, NULL, -1);
+    gui_selectable_toggle(_("Metal Direct Preview"), &pt->backend,
+                          PT_BACKEND_METAL_PREVIEW, NULL, -1);
+    gui_group_end();
+    if (pt->backend == PT_BACKEND_METAL_PREVIEW) {
+        resolution_percent = pt->resolution_scale * 100.0f;
+        if (gui_input_float(_("Resolution %"), &resolution_percent,
+                            5, 25, 100, "%.0f"))
+            pt->resolution_scale =
+                clamp(resolution_percent / 100.0f, 0.25f, 1.0f);
+        if (gui_input_int(_("Max ray steps"), &pt->max_steps, 0, 0))
+            pt->max_steps = clamp(pt->max_steps, 64, 4096);
+        gui_text(_("Direct-light voxel preview; final CPU render unchanged"));
+        if (pt->gpu_fallback)
+            gui_text(_("Metal unavailable: using Yocto CPU fallback"));
+    }
+
     if (gui_input_int(_("Samples"), &pt->num_samples, 0, 0))
         pt->num_samples = clamp(pt->num_samples, 1, 10000);
 
-    if (pt->status == PT_STOPPED && gui_button(_("Start"), 1, 0))
+    if (pt->status == PT_STOPPED && gui_button(_("Start"), 1, 0)) {
+        pt->gpu_fallback = false;
         pt->status = PT_RUNNING;
+    }
     if (pt->status == PT_RUNNING && gui_button(_("Stop"), 1, 0)) {
         pathtracer_stop(pt);
         pt->status = PT_STOPPED;
@@ -57,6 +80,7 @@ void gui_render_panel(void)
     if (pt->status == PT_FINISHED && gui_button(_("Restart"), 1, 0)) {
         pt->status = PT_RUNNING;
         pt->samples = 0;
+        pt->gpu_fallback = false;
         pt->force_restart = true;
     }
     if (pt->status) {

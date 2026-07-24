@@ -35,6 +35,11 @@ enum {
     PT_FINISHED,
 };
 
+enum {
+    PT_BACKEND_CPU = 0,
+    PT_BACKEND_METAL_PREVIEW,
+};
+
 typedef struct pathtracer_internal pathtracer_internal_t;
 
 // Hold info about the cycles rendering task.
@@ -47,6 +52,10 @@ typedef struct {
     pathtracer_internal_t *p;
     int num_samples;
     int samples;
+    int backend;
+    float resolution_scale;
+    int max_steps;
+    bool gpu_fallback;
     struct {
         int type;
         float energy;

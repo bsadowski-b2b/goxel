@@ -79,6 +79,7 @@ struct render_item_t
 
 // The cache of the g_items.
 static cache_t   *g_items_cache;
+static render_perf_stats_t g_perf;
 static const int BATCH_QUAD_COUNT = 1 << 14;
 static model3d_t *g_cube_model;
 static model3d_t *g_line_model;
@@ -399,7 +400,11 @@ static render_item_t *get_item_for_tile(
     }
 
     item = cache_get(g_items_cache, &key, sizeof(key));
-    if (item) return item;
+    if (item) {
+        g_perf.cache_hits++;
+        return item;
+    }
+    g_perf.cache_misses++;
 
     item = calloc(1, sizeof(*item));
     item->key = key;
@@ -409,17 +414,56 @@ static render_item_t *get_item_for_tile(
         g_vertices_buffer = calloc(
                 TILE_SIZE * TILE_SIZE * TILE_SIZE * 6 * 4,
                 sizeof(*g_vertices_buffer));
-    item->nb_elements = volume_generate_vertices(
-            volume, tile_pos, effects, g_vertices_buffer,
-            &item->size, &item->subdivide);
+    const double mesh_start = sys_get_time();
+    memset(g_vertices_buffer, 0,
+           TILE_SIZE * TILE_SIZE * TILE_SIZE * 6 * 4 *
+           sizeof(*g_vertices_buffer));
+    item->size = 4;
+    item->subdivide = 1;
+    if ((effects & EFFECT_MARCHING_CUBES) &&
+            (effects & EFFECT_MC_SMOOTH) &&
+            gpu_accel_get_mode(goxel.gpu_accel) == GPU_ACCEL_AUTO &&
+            gpu_accel_generate_mc_vertices(
+                goxel.gpu_accel, volume, tile_pos, g_vertices_buffer,
+                BATCH_QUAD_COUNT, &item->nb_elements)) {
+        item->size = 3;
+        item->subdivide = 8;
+    } else if (!(effects & EFFECT_MARCHING_CUBES) &&
+            gpu_accel_get_mode(goxel.gpu_accel) == GPU_ACCEL_AUTO &&
+            gpu_accel_generate_block_vertices(
+                goxel.gpu_accel, volume, tile_pos, g_vertices_buffer,
+                BATCH_QUAD_COUNT, &item->nb_elements)) {
+        // Metal supplied the complete block vertex stream.
+    } else {
+        item->nb_elements = volume_generate_vertices(
+                volume, tile_pos, effects, g_vertices_buffer,
+                &item->size, &item->subdivide);
+        if (!(effects & EFFECT_MARCHING_CUBES))
+            gpu_accel_validate_block_vertices(
+                    goxel.gpu_accel, volume, tile_pos, g_vertices_buffer,
+                    item->nb_elements);
+        if ((effects & EFFECT_MARCHING_CUBES) &&
+                (effects & EFFECT_MC_SMOOTH))
+            gpu_accel_validate_mc_vertices(
+                    goxel.gpu_accel, volume, tile_pos, g_vertices_buffer,
+                    item->nb_elements);
+    }
+    g_perf.cpu_mesh_ms += (sys_get_time() - mesh_start) * 1000.0;
+    g_perf.meshed_tiles++;
     if (item->nb_elements > BATCH_QUAD_COUNT) {
         LOG_W("Too many quads!");
         item->nb_elements = BATCH_QUAD_COUNT;
     }
     if (item->nb_elements != 0) {
+        const size_t upload_size =
+            item->nb_elements * item->size * sizeof(*g_vertices_buffer);
+        const double upload_start = sys_get_time();
         GL(glBufferData(GL_ARRAY_BUFFER,
-                item->nb_elements * item->size * sizeof(*g_vertices_buffer),
+                upload_size,
                 g_vertices_buffer, GL_STATIC_DRAW));
+        g_perf.buffer_upload_ms +=
+            (sys_get_time() - upload_start) * 1000.0;
+        g_perf.uploaded_bytes += upload_size;
     }
 
     cache_add(g_items_cache, &key, sizeof(key), item,
@@ -465,20 +509,27 @@ static void render_tile_(renderer_t *rend, volume_t *volume,
     mat4_itranslate(tile_model, tile_pos[0], tile_pos[1], tile_pos[2]);
     gl_update_uniform(shader, "u_model", tile_model);
     if (item->size == 4) {
-        if (!(effects & (EFFECT_GRID | EFFECT_EDGES))) {
+        if (!(effects & (EFFECT_GRID | EFFECT_EDGES | EFFECT_FRAMES))) {
             GL(glDrawElements(GL_TRIANGLES, item->nb_elements * 6,
                               GL_UNSIGNED_SHORT, 0));
+            g_perf.draw_calls++;
         } else {
+            if (effects & EFFECT_FRAMES)
+                GL(glLineWidth(max(1.0f, 1.5f * rend->scale)));
             gl_update_uniform(shader, "u_l_amb", 0.0);
             gl_update_uniform(shader, "u_z_ofs", -0.001);
             GL(glDrawElements(GL_LINES, item->nb_elements * 8,
                               GL_UNSIGNED_SHORT,
                               (void*)(uintptr_t)(BATCH_QUAD_COUNT * 6 * 2)));
+            g_perf.draw_calls++;
             gl_update_uniform(shader, "u_l_amb", rend->settings.ambient);
             gl_update_uniform(shader, "u_z_ofs", 0.0);
+            if (effects & EFFECT_FRAMES)
+                GL(glLineWidth(1.0f));
         }
     } else {
         GL(glDrawArrays(GL_TRIANGLES, 0, item->nb_elements * item->size));
+        g_perf.draw_calls++;
     }
 
 #ifndef GLES2
@@ -600,7 +651,9 @@ static void render_volume_(renderer_t *rend, volume_t *volume,
                                (effects & EFFECT_EDGES)},
             {"HAS_TANGENTS", effects & EFFECT_BORDERS},
             {"ONLY_EDGES", effects & EFFECT_EDGES},
-            {"ADAPTIVE_LINE_COLOR", effects & (EFFECT_GRID | EFFECT_EDGES)},
+            {"ONLY_FRAMES", effects & EFFECT_FRAMES},
+            {"ADAPTIVE_LINE_COLOR",
+                effects & (EFFECT_GRID | EFFECT_EDGES | EFFECT_FRAMES)},
             {"HAS_OCCLUSION_MAP", rend->settings.occlusion_strength > 0},
             {"VERTEX_LIGHTNING", !(effects & (EFFECT_BORDERS | EFFECT_UNLIT))},
             {"SMOOTHNESS", rend->settings.smoothness > 0},
@@ -662,6 +715,19 @@ static void render_volume_(renderer_t *rend, volume_t *volume,
     gl_update_uniform(shader, "u_m_base_color", material->base_color);
     gl_update_uniform(shader, "u_m_emissive_factor", material->emission);
     gl_update_uniform(shader, "u_m_smoothness", rend->settings.smoothness);
+    if (effects & EFFECT_FRAMES) {
+        int frame_aabb[2][3];
+        float frame_origin[3] = {0, 0, 0};
+        if (!box_is_null(goxel.image->box) &&
+                box_is_bbox(goxel.image->box)) {
+            bbox_to_aabb(goxel.image->box, frame_aabb);
+            vec3_set(frame_origin, frame_aabb[0][0], frame_aabb[0][1],
+                     frame_aabb[0][2]);
+        }
+        gl_update_uniform(shader, "u_frame_origin", frame_origin);
+        gl_update_uniform(shader, "u_frame_spacing",
+                          (float)max(goxel.frame_spacing, 1));
+    }
 
     gl_update_uniform(shader, "u_occlusion_strength",
                       rend->settings.occlusion_strength);
@@ -708,7 +774,7 @@ void render_volume(renderer_t *rend, const volume_t *volume,
         item->volume = volume_copy(volume);
         item->material = *material;
         item->effects = effects | rend->settings.effects;
-        item->effects &= ~(EFFECT_GRID | EFFECT_EDGES);
+        item->effects &= ~(EFFECT_GRID | EFFECT_EDGES | EFFECT_FRAMES);
         // With EFFECT_RENDER_POS we need to remove some effects.
         if (item->effects & EFFECT_RENDER_POS)
             item->effects &= ~(EFFECT_SEMI_TRANSPARENT | EFFECT_SEE_BACK |
@@ -735,6 +801,17 @@ void render_volume(renderer_t *rend, const volume_t *volume,
         item->type = ITEM_VOLUME;
         item->volume = volume_copy(volume);
         item->effects = EFFECT_EDGES | EFFECT_BORDERS;
+        item->material = *material;
+        vec4_set(item->material.base_color, 1, 1, 1, alpha);
+        DL_APPEND(rend->items, item);
+    }
+
+    if (effects & EFFECT_FRAMES) {
+        alpha = 0.40;
+        item = calloc(1, sizeof(*item));
+        item->type = ITEM_VOLUME;
+        item->volume = volume_copy(volume);
+        item->effects = EFFECT_FRAMES | EFFECT_BORDERS;
         item->material = *material;
         vec4_set(item->material.base_color, 1, 1, 1, alpha);
         DL_APPEND(rend->items, item);
@@ -1057,6 +1134,7 @@ static void render_background(renderer_t *rend, const uint8_t col[4])
 void render_submit(renderer_t *rend, const float viewport[4],
                    const uint8_t clear_color[4])
 {
+    const double submit_start = sys_get_time();
     render_item_t *item, *tmp;
     float shadow_mvp[4][4];
     const float s = rend->scale;
@@ -1099,9 +1177,113 @@ void render_submit(renderer_t *rend, const float viewport[4],
         free(item);
     }
     assert(rend->items == NULL);
+    g_perf.submit_cpu_ms += (sys_get_time() - submit_start) * 1000.0;
 }
 
 void render_on_low_memory(renderer_t *rend)
 {
     cache_clear(g_items_cache);
+}
+
+void render_perf_get_stats(render_perf_stats_t *stats)
+{
+    if (stats) *stats = g_perf;
+}
+
+void render_perf_reset_stats(void)
+{
+    memset(&g_perf, 0, sizeof(g_perf));
+}
+
+void render_perf_record_pick_cache_hit(void)
+{
+    g_perf.pick_cache_hits++;
+}
+
+void render_perf_record_pick_render(double elapsed_ms)
+{
+    g_perf.pick_renders++;
+    g_perf.pick_render_ms += elapsed_ms;
+}
+
+void render_perf_record_pick_readback(double elapsed_ms)
+{
+    g_perf.pick_readbacks++;
+    g_perf.pick_readback_ms += elapsed_ms;
+}
+
+void render_perf_record_tool_preview(void)
+{
+    g_perf.tool_preview_frames++;
+}
+
+void render_perf_log_report(void)
+{
+    volume_global_stats_t volume_stats;
+    gpu_mirror_stats_t mirror;
+    volume_get_global_stats(&volume_stats);
+    gpu_accel_get_mirror_stats(goxel.gpu_accel, &mirror);
+    LOG_I("GPU_BASELINE backend=%s mode=%s frames=%d fps=%.2f "
+          "volumes=%d tiles=%d volume_mem_bytes=%llu cache_hits=%llu "
+          "cache_misses=%llu meshed_tiles=%llu cpu_mesh_ms=%.3f "
+          "buffer_upload_ms=%.3f uploaded_bytes=%llu draw_calls=%llu "
+          "submit_cpu_ms=%.3f mirror_tiles=%llu mirror_capacity_bytes=%llu "
+          "mirror_dirty=%llu mirror_halo=%llu mirror_uploads=%llu "
+          "mirror_uploaded_bytes=%llu mirror_evictions=%llu "
+          "mirror_removals=%llu mirror_checksum_errors=%llu "
+          "mesh_attempts=%llu mesh_successes=%llu mesh_fallbacks=%llu "
+          "mesh_mismatches=%llu mesh_overflows=%llu mesh_gpu_ms=%.3f "
+          "pick_cache_hits=%llu pick_renders=%llu pick_render_ms=%.3f "
+          "pick_readbacks=%llu pick_readback_ms=%.3f "
+          "tool_preview_frames=%llu path_preview_attempts=%llu "
+          "path_preview_frames=%llu path_preview_fallbacks=%llu "
+          "path_preview_resets=%llu path_preview_gpu_ms=%.3f "
+          "path_preview_memory_bytes=%llu "
+          "path_backend=%s path_size=%dx%d path_samples=%d/%d "
+          "path_max_steps=%d",
+          goxel.gpu_accel ?
+              gpu_accel_backend_name(
+                  gpu_accel_get_capabilities(goxel.gpu_accel)->backend) :
+              "CPU/OpenGL",
+          gpu_accel_mode_name(goxel.gpu_accel_mode),
+          goxel.frame_count, goxel.fps, volume_stats.nb_volumes,
+          volume_stats.nb_tiles, (unsigned long long)volume_stats.mem,
+          (unsigned long long)g_perf.cache_hits,
+          (unsigned long long)g_perf.cache_misses,
+          (unsigned long long)g_perf.meshed_tiles, g_perf.cpu_mesh_ms,
+          g_perf.buffer_upload_ms,
+          (unsigned long long)g_perf.uploaded_bytes,
+          (unsigned long long)g_perf.draw_calls, g_perf.submit_cpu_ms,
+          (unsigned long long)mirror.mirrored_tiles,
+          (unsigned long long)mirror.capacity_bytes,
+          (unsigned long long)mirror.dirty_tiles,
+          (unsigned long long)mirror.halo_tiles,
+          (unsigned long long)mirror.uploads,
+          (unsigned long long)mirror.uploaded_bytes,
+          (unsigned long long)mirror.evictions,
+          (unsigned long long)mirror.removals,
+          (unsigned long long)mirror.checksum_mismatches,
+          (unsigned long long)mirror.mesh_attempts,
+          (unsigned long long)mirror.mesh_successes,
+          (unsigned long long)mirror.mesh_fallbacks,
+          (unsigned long long)mirror.mesh_validation_mismatches,
+          (unsigned long long)mirror.mesh_overflows,
+          mirror.mesh_gpu_ms,
+          (unsigned long long)g_perf.pick_cache_hits,
+          (unsigned long long)g_perf.pick_renders,
+          g_perf.pick_render_ms,
+          (unsigned long long)g_perf.pick_readbacks,
+          g_perf.pick_readback_ms,
+          (unsigned long long)g_perf.tool_preview_frames,
+          (unsigned long long)mirror.path_preview_attempts,
+          (unsigned long long)mirror.path_preview_frames,
+          (unsigned long long)mirror.path_preview_fallbacks,
+          (unsigned long long)mirror.path_preview_resets,
+          mirror.path_preview_gpu_ms,
+          (unsigned long long)mirror.path_preview_memory_bytes,
+          goxel.pathtracer.backend == PT_BACKEND_METAL_PREVIEW ?
+              "MetalDirect" : "YoctoCPU",
+          goxel.pathtracer.w, goxel.pathtracer.h,
+          goxel.pathtracer.samples, goxel.pathtracer.num_samples,
+          goxel.pathtracer.max_steps);
 }

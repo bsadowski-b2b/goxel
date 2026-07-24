@@ -37,6 +37,9 @@ uniform lowp float u_m_smoothness;
 uniform lowp vec4  u_m_base_color;
 uniform lowp vec3  u_m_emissive_factor;
 
+uniform highp vec3  u_frame_origin;
+uniform highp float u_frame_spacing;
+
 uniform mediump sampler2D u_normal_sampler;
 uniform lowp    float     u_normal_scale;
 
@@ -264,6 +267,23 @@ void main()
     float metallic = u_m_metallic;
     float roughness = u_m_roughness;
     vec4 base_color = u_m_base_color * v_color;
+
+#ifdef ONLY_FRAMES
+    mediump vec3 frame_normal = abs(getNormal());
+    highp vec3 frame_pos = v_Position - u_frame_origin;
+    highp vec3 frame_mod = mod(frame_pos + vec3(0.001),
+                              vec3(u_frame_spacing));
+    highp vec3 on_frame = vec3(
+        min(frame_mod.x, u_frame_spacing - frame_mod.x) < 0.01 ? 1.0 : 0.0,
+        min(frame_mod.y, u_frame_spacing - frame_mod.y) < 0.01 ? 1.0 : 0.0,
+        min(frame_mod.z, u_frame_spacing - frame_mod.z) < 0.01 ? 1.0 : 0.0);
+    bool keep_frame =
+        (frame_normal.x > 0.5 && (on_frame.y > 0.5 || on_frame.z > 0.5)) ||
+        (frame_normal.y > 0.5 && (on_frame.x > 0.5 || on_frame.z > 0.5)) ||
+        (frame_normal.z > 0.5 && (on_frame.x > 0.5 || on_frame.y > 0.5));
+    if (!keep_frame)
+        discard;
+#endif
 
 #ifdef ADAPTIVE_LINE_COLOR
     vec3 voxel_color = toneMap(v_color.rgb);

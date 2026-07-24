@@ -151,10 +151,134 @@ static void test_xcom_swatches_file_roundtrip(void)
     sys_delete_file("/tmp/goxel_xcom_swatches.gox");
 }
 
+static void test_gpu_accel_safety_helpers(void)
+{
+    size_t result = 0;
+    int dirty[2][3] = {{0, 0, 0}, {16, 0, 0}};
+    int negative[1][3] = {{-16, -32, -48}};
+    int halo[54][3];
+    int i, count;
+    bool found_negative_corner = false;
+
+    TEST(gpu_accel_checked_mul_size(16, 4096, &result));
+    TEST(result == 65536);
+    TEST(!gpu_accel_checked_mul_size(SIZE_MAX, 2, &result));
+    TEST(gpu_accel_checked_add_size(SIZE_MAX - 1, 1, &result));
+    TEST(result == SIZE_MAX);
+    TEST(!gpu_accel_checked_add_size(SIZE_MAX, 1, &result));
+    TEST(!gpu_accel_checked_add_size(1, 1, NULL));
+    TEST(strcmp(gpu_accel_mode_name(GPU_ACCEL_OFF), "Off") == 0);
+    TEST(strcmp(gpu_accel_mode_name(GPU_ACCEL_AUTO), "Auto") == 0);
+    TEST(strcmp(gpu_accel_mode_name(GPU_ACCEL_VALIDATION),
+                "Validation") == 0);
+    count = gpu_accel_expand_tile_halo(
+            (const int (*)[3])dirty, 1, halo, 54);
+    TEST(count == 27);
+    count = gpu_accel_expand_tile_halo(
+            (const int (*)[3])dirty, 2, halo, 54);
+    TEST(count == 36);
+    TEST(gpu_accel_expand_tile_halo(
+            (const int (*)[3])dirty, 2, halo, 35) == -1);
+    count = gpu_accel_expand_tile_halo(
+            (const int (*)[3])negative, 1, halo, 54);
+    TEST(count == 27);
+    for (i = 0; i < count; i++)
+        if (halo[i][0] == -32 && halo[i][1] == -48 &&
+                halo[i][2] == -64)
+            found_negative_corner = true;
+    TEST(found_negative_corner);
+}
+
+static void test_gpu_marching_cubes_parity(void)
+{
+#ifdef __APPLE__
+    volume_t *volume = volume_new();
+    gpu_accel_t *accel;
+    voxel_vertex_t *vertices =
+        calloc(16384 * 3, sizeof(*vertices));
+    const uint8_t colors[][4] = {
+        {40, 120, 220, 255}, {220, 80, 40, 180},
+        {70, 210, 90, 255}, {190, 80, 210, 220},
+    };
+    const int voxel_positions[][3] = {
+        {-1, 7, 7}, {0, 7, 7}, {15, 7, 7}, {16, 7, 7},
+        {7, 0, 15}, {7, 0, 16}, {7, 15, 0}, {7, 16, 0},
+    };
+    const int tile_positions[][3] = {
+        {-16, 0, 0}, {0, 0, 0}, {16, 0, 0},
+        {0, 0, 16}, {0, 16, 0},
+    };
+    int count, size, subdivide, i;
+
+    for (i = 0; i < (int)ARRAY_SIZE(voxel_positions); i++)
+        volume_set_at(volume, NULL, voxel_positions[i],
+                      colors[i % ARRAY_SIZE(colors)]);
+    accel = gpu_accel_create(GPU_ACCEL_VALIDATION);
+    for (i = 0; i < (int)ARRAY_SIZE(tile_positions); i++) {
+        count = volume_generate_vertices(
+                volume, tile_positions[i],
+                EFFECT_MARCHING_CUBES | EFFECT_MC_SMOOTH,
+                vertices, &size, &subdivide);
+        TEST(count > 0);
+        TEST(size == 3);
+        TEST(subdivide == 8);
+        if (accel && gpu_accel_get_capabilities(accel)->available)
+            TEST(gpu_accel_validate_mc_vertices(
+                    accel, volume, tile_positions[i], vertices, count));
+    }
+    gpu_accel_destroy(accel);
+    free(vertices);
+    volume_delete(volume);
+#endif
+}
+
+static void test_gpu_path_preview(void)
+{
+#ifdef __APPLE__
+    volume_t *volume = volume_new();
+    gpu_accel_t *accel;
+    gpu_path_preview_params_t params = {
+        .width = 8,
+        .height = 8,
+        .sample = 0,
+        .max_steps = 64,
+        .light_direction = {0, 0, -1, 0},
+        .background = {0, 0, 0, 1},
+        .light_intensity = 1,
+        .ambient = 0.2,
+    };
+    uint8_t rgba[8 * 8 * 4] = {};
+    const uint8_t voxel[4] = {220, 80, 40, 255};
+    const int voxel_pos[3] = {-1, 0, 0};
+    int i;
+
+    for (i = 0; i < 4; i++) {
+        params.ray_origins[i][0] = -0.5;
+        params.ray_origins[i][1] = 0.5;
+        params.ray_origins[i][2] = -4;
+        params.ray_directions[i][2] = 1;
+    }
+    volume_set_at(volume, NULL, voxel_pos, voxel);
+    accel = gpu_accel_create(GPU_ACCEL_VALIDATION);
+    if (accel && gpu_accel_get_capabilities(accel)->pathtrace_preview) {
+        TEST(gpu_accel_render_path_preview(
+                accel, volume, &params, rgba));
+        TEST(rgba[0] > rgba[1]);
+        TEST(rgba[1] > rgba[2]);
+        TEST(rgba[3] == 255);
+    }
+    gpu_accel_destroy(accel);
+    volume_delete(volume);
+#endif
+}
+
 void tests_run(void)
 {
     test_load_file_v2();
     test_load_file_v1_with_preview();
     test_load_corrupt();
     test_xcom_swatches_file_roundtrip();
+    test_gpu_accel_safety_helpers();
+    test_gpu_marching_cubes_parity();
+    test_gpu_path_preview();
 }

@@ -65,7 +65,8 @@ if env['mode'] == 'debug' and target_os == 'posix':
 # CXXFLAGS  : only C++
 env.Append(
     CFLAGS=['-std=gnu99', '-Wall',
-            '-Wno-unknow-pragma', '-Wno-unknown-warning-option'],
+            '-Wno-unknow-pragma', '-Wno-unknown-warning-option',
+            '-Wno-typedef-redefinition'],
     CXXFLAGS=['-std=gnu++17', '-Wall', '-Wno-narrowing']
 )
 
@@ -129,7 +130,7 @@ if target_os == 'darwin':
     sources += glob.glob('src/*.m')
     sources.append('ext_src/nfd/nfd_cocoa.m')
     env.Append(FRAMEWORKS=[
-        'OpenGL', 'Cocoa', 'AppKit', 'UniformTypeIdentifiers'])
+        'OpenGL', 'Cocoa', 'AppKit', 'UniformTypeIdentifiers', 'Metal'])
     env.Append(LIBS=['m', 'objc'])
     # Fix warning in noc_file_dialog (the code should be fixed instead).
     env.Append(CCFLAGS=['-Wno-deprecated-declarations'])

@@ -45,6 +45,7 @@ enum {
     EFFECT_LINE_THICK       = 1 << 19,
 
     EFFECT_NO_DEPTH_TEST    = 1 << 20,
+    EFFECT_FRAMES           = 1 << 21,
 };
 
 typedef struct {
@@ -57,6 +58,23 @@ typedef struct {
 
 typedef struct renderer renderer_t;
 typedef struct render_item_t render_item_t;
+
+typedef struct {
+    uint64_t cache_hits;
+    uint64_t cache_misses;
+    uint64_t meshed_tiles;
+    uint64_t uploaded_bytes;
+    uint64_t draw_calls;
+    uint64_t pick_cache_hits;
+    uint64_t pick_renders;
+    uint64_t pick_readbacks;
+    uint64_t tool_preview_frames;
+    double cpu_mesh_ms;
+    double buffer_upload_ms;
+    double submit_cpu_ms;
+    double pick_render_ms;
+    double pick_readback_ms;
+} render_perf_stats_t;
 struct renderer
 {
     float view_mat[4][4];
@@ -119,5 +137,12 @@ void render_get_light_dir(const renderer_t *rend, float out[3]);
 
 // Attempt to release some memory.
 void render_on_low_memory(renderer_t *rend);
+void render_perf_get_stats(render_perf_stats_t *stats);
+void render_perf_reset_stats(void);
+void render_perf_log_report(void);
+void render_perf_record_pick_cache_hit(void);
+void render_perf_record_pick_render(double elapsed_ms);
+void render_perf_record_pick_readback(double elapsed_ms);
+void render_perf_record_tool_preview(void);
 
 #endif // RENDER_H

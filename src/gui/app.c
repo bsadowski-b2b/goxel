@@ -282,7 +282,7 @@ void gui_app(void)
 {
     float x = 0, y = 0;
     const char *name;
-    const float spacing = 8;
+    const float spacing = gui_get_item_spacing_x();
     int flags;
     int i;
     filter_layout_state_t filter_layout_state;

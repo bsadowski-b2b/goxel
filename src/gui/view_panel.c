@@ -51,8 +51,22 @@ void gui_view_panel(void)
             clamp(goxel.rend.settings.smoothness, 0, 1);
     }
 
-    gui_checkbox_flag(_("Grid"), &goxel.view_effects, EFFECT_GRID, NULL);
-    gui_checkbox_flag(_("Edges"), &goxel.view_effects, EFFECT_EDGES, NULL);
+    if (gui_checkbox_flag(_("Grid Lines"), &goxel.view_effects,
+                          EFFECT_GRID, NULL))
+        settings_save();
+    if (gui_checkbox_flag(_("Edges"), &goxel.view_effects,
+                          EFFECT_EDGES, NULL))
+        settings_save();
+    if (gui_checkbox_flag(_("Frames"), &goxel.view_effects,
+                          EFFECT_FRAMES, NULL))
+        settings_save();
+    if (goxel.view_effects & EFFECT_FRAMES) {
+        if (gui_input_int(_("Frame Spacing"), &goxel.frame_spacing,
+                          1, 64)) {
+            goxel.frame_spacing = clamp(goxel.frame_spacing, 1, 64);
+        }
+        if (gui_is_item_deactivated()) settings_save();
+    }
     gui_checkbox_flag(_("Shadeless"),
             &goxel.rend.settings.effects, EFFECT_UNLIT, NULL);
     gui_checkbox_flag(_("Border"),

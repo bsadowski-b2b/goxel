@@ -168,6 +168,13 @@ static int check_changes(pathtracer_t *pt)
         if (!layer->visible || !layer->volume) continue;
         k = volume_get_key(layer->volume);
         key = XXH32(&k, sizeof(k), key);
+        if (layer->material) {
+            k = material_get_hash(layer->material);
+        } else {
+            const material_t default_material = MATERIAL_DEFAULT;
+            k = material_get_hash(&default_material);
+        }
+        key = XXH32(&k, sizeof(k), key);
     }
     key = XXH32(goxel.back_color, sizeof(goxel.back_color), key);
     key = XXH32(&goxel.rend.settings.effects,
@@ -204,6 +211,12 @@ static int check_changes(pathtracer_t *pt)
     // Options changes.
     key = 0;
     key = XXH32(&pt->num_samples, sizeof(pt->num_samples), key);
+    key = XXH32(&pt->backend, sizeof(pt->backend), key);
+    key = XXH32(&pt->resolution_scale,
+                sizeof(pt->resolution_scale), key);
+    key = XXH32(&pt->max_steps, sizeof(pt->max_steps), key);
+    key = XXH32(&goxel.gpu_accel_mode,
+                sizeof(goxel.gpu_accel_mode), key);
     if (key != p->options_key) {
         p->options_key = key;
         changes |= CHANGE_OPTIONS;
@@ -396,6 +409,58 @@ static void update_preview(pathtracer_t *pt, const image_data &img)
     }
 }
 
+static bool update_metal_preview(pathtracer_t *pt, int changes)
+{
+    gpu_path_preview_params_t params = {};
+    camera_t *camera = goxel.image->active_camera;
+    const volume_t *volume = goxel_get_render_volume(goxel.image);
+    const float viewport[4] = {0, 0, (float)pt->w, (float)pt->h};
+    const float corners[4][2] = {
+        {0, 0}, {(float)pt->w, 0},
+        {0, (float)pt->h}, {(float)pt->w, (float)pt->h},
+    };
+    float light_dir[3];
+    int i, c;
+
+    if (pt->backend != PT_BACKEND_METAL_PREVIEW || pt->gpu_fallback)
+        return false;
+    if (changes) pt->samples = 0;
+    if (pt->samples >= pt->num_samples) {
+        pt->status = PT_FINISHED;
+        return true;
+    }
+    params.width = pt->w;
+    params.height = pt->h;
+    params.sample = pt->samples;
+    params.max_steps = clamp(pt->max_steps, 64, 4096);
+    for (i = 0; i < 4; i++) {
+        camera_get_ray(camera, corners[i], viewport,
+                       params.ray_origins[i], params.ray_directions[i]);
+    }
+    render_get_light_dir(&goxel.rend, light_dir);
+    memcpy(params.light_direction, light_dir, sizeof(light_dir));
+    params.light_intensity = goxel.rend.light.intensity;
+    params.ambient = clamp(goxel.rend.settings.ambient, 0.0f, 1.0f);
+    for (c = 0; c < 3; c++) {
+        float srgb = (pt->world.type == PT_WORLD_NONE ? 0.0f :
+                      pt->world.color[c] / 255.0f);
+        params.background[c] =
+            powf(srgb, 2.2f) * max(pt->world.energy, 0.0f);
+    }
+    params.background[3] = 1.0f;
+    if (!gpu_accel_render_path_preview(
+                goxel.gpu_accel, volume, &params, pt->buf)) {
+        pt->gpu_fallback = true;
+        pt->samples = 0;
+        LOG_W("Metal path preview unavailable; Yocto CPU fallback active");
+        return false;
+    }
+    pt->samples++;
+    pt->status =
+        pt->samples >= pt->num_samples ? PT_FINISHED : PT_RUNNING;
+    return true;
+}
+
 /*
  * Function: pathtracer_iter
  * Iter the rendering process of the current volume.
@@ -421,7 +486,15 @@ void pathtracer_iter(pathtracer_t *pt, const float viewport[4])
     if (pt->force_restart) {
         changes |= CHANGE_OPTIONS;
         pt->force_restart = false;
+        pt->gpu_fallback = false;
     }
+    if (changes & CHANGE_OPTIONS)
+        pt->gpu_fallback = false;
+
+    if (pt->backend == PT_BACKEND_METAL_PREVIEW && changes)
+        trace_cancel(p->context);
+    if (update_metal_preview(pt, changes))
+        return;
 
     if (changes) {
         p->to_sync |= changes;

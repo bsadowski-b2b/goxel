@@ -181,8 +181,6 @@ static void loop_function(void *arg)
     int i;
     double xpos, ypos;
     float scale;
-    float scales[2];
-    GLFWmonitor *monitor;
     GLFWwindow *window = arg;
 
     if (    !glfwGetWindowAttrib(window, GLFW_VISIBLE) ||
@@ -193,9 +191,11 @@ static void loop_function(void *arg)
 
     glfwGetWindowSize(window, &win_size[0], &win_size[1]);
     glfwGetFramebufferSize(window, &fb_size[0], &fb_size[1]);
-    monitor = glfwGetPrimaryMonitor();
-    glfwGetMonitorContentScale(monitor, &scales[0], &scales[1]);
-    scale = g_scale * scales[0];
+    // Derive scaling from this window's actual framebuffer. A monitor's
+    // nominal content scale can disagree with a non-Retina framebuffer or
+    // become stale after the window moves to another display.
+    scale = g_scale * (win_size[0] ?
+            (float)fb_size[0] / (float)win_size[0] : 1.0f);
 
     g_inputs->window_size[0] = fb_size[0] / scale;
     g_inputs->window_size[1] = fb_size[1] / scale;
@@ -406,10 +406,10 @@ int main(int argc, char **argv)
 
     glfwSetErrorCallback(on_glfw_error);
     glfwInit();
-    glfwWindowHint(GLFW_SAMPLES, 0);
+    glfwWindowHint(GLFW_SAMPLES, 4);
     glfwWindowHint(GLFW_DOUBLEBUFFER, GLFW_TRUE);
 #ifdef __APPLE__
-    glfwWindowHint(GLFW_COCOA_RETINA_FRAMEBUFFER, GLFW_FALSE);
+    glfwWindowHint(GLFW_COCOA_RETINA_FRAMEBUFFER, GLFW_TRUE);
 #endif
 
     // Is there a clean way to create a maximized window
